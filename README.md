@@ -1,5 +1,11 @@
 # hcli — Local-only Telemetry TUI for Coding Agents
 
+[![CI](https://github.com/justinmaks/hedge-local/actions/workflows/ci.yml/badge.svg)](https://github.com/justinmaks/hedge-local/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/justinmaks/hedge-local?sort=semver)](https://github.com/justinmaks/hedge-local/releases)
+[![Go Reference](https://pkg.go.dev/badge/github.com/justinmaks/hedge-local.svg)](https://pkg.go.dev/github.com/justinmaks/hedge-local)
+[![Go Report Card](https://goreportcard.com/badge/github.com/justinmaks/hedge-local)](https://goreportcard.com/report/github.com/justinmaks/hedge-local)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 hcli collects OpenTelemetry (OTEL) telemetry from coding agents (Claude Code, OpenCode) into a local SQLite database and visualizes cost, tokens, tool usage, and latency in a terminal UI. Single Go binary, no cloud, no account, no telemetry home.
 
 ## Quickstart
@@ -154,6 +160,8 @@ Single Go binary, no CGO, pure-Go SQLite via modernc.org/sqlite.
 ## Local-Only Guarantee
 
 hcli makes **no outbound network calls** during normal operation. The only exception is `hcli pricing fetch`, which is an explicit user-initiated command that downloads pricing data from GitHub. All telemetry data stays on your machine.
+
+Local data lives in `~/.hedge/` and is stored owner-only: the directory is created `0700` and the SQLite database and daemon logs `0600`, so other users on a shared machine can't read your captured telemetry.
 
 ## Troubleshooting
 
