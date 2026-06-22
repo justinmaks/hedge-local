@@ -41,7 +41,10 @@ gosec rules: G301 (dir perms), G306 (file perms).
 
 ## 2. Bound the OTLP receiver request body and add server timeouts
 
-☐ **todo**
+☑ **done** — each handler now wraps the body in `http.MaxBytesReader`
+(16 MiB default, configurable via `Receiver.maxBodyBytes`) and the `http.Server`
+sets `ReadHeaderTimeout`. Oversized bodies return 400 and increment the
+malformed counter (`internal/collect/receiver.go`).
 
 The receive handlers read the entire request body with `io.ReadAll(req.Body)`
 and no size cap (`internal/collect/receiver.go:79,110,141`). The `http.Server`

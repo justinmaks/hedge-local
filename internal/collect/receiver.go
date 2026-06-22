@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"sync/atomic"
+	"time"
 
 	collogspb "go.opentelemetry.io/proto/otlp/collector/logs/v1"
 	colmetricspb "go.opentelemetry.io/proto/otlp/collector/metrics/v1"
@@ -17,17 +18,40 @@ import (
 	"github.com/justinmaks/hedge-local/internal/normalize"
 )
 
+// defaultMaxBodyBytes caps a single OTLP request body. The receiver is
+// localhost-only, but a malformed/oversized body should not exhaust memory.
+const defaultMaxBodyBytes = 16 << 20 // 16 MiB
+
+// readHeaderTimeout bounds how long a client may take to send request headers,
+// guarding against slow-client connection exhaustion.
+const readHeaderTimeout = 10 * time.Second
+
 type Receiver struct {
-	normalizer normalize.Normalizer
-	writer     *Writer
-	port       int
-	server     *http.Server
-	started    atomic.Bool
-	malformed  atomic.Int64
+	normalizer   normalize.Normalizer
+	writer       *Writer
+	port         int
+	server       *http.Server
+	started      atomic.Bool
+	malformed    atomic.Int64
+	maxBodyBytes int64
 }
 
 func NewReceiver(n normalize.Normalizer, w *Writer, port int) *Receiver {
-	return &Receiver{normalizer: n, writer: w, port: port}
+	return &Receiver{normalizer: n, writer: w, port: port, maxBodyBytes: defaultMaxBodyBytes}
+}
+
+// readBody reads the request body up to maxBodyBytes. On any read error
+// (including an oversized body) it records a malformed request, writes a 400,
+// and returns ok=false.
+func (r *Receiver) readBody(w http.ResponseWriter, req *http.Request) ([]byte, bool) {
+	req.Body = http.MaxBytesReader(w, req.Body, r.maxBodyBytes)
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		r.malformed.Add(1)
+		http.Error(w, "read body", http.StatusBadRequest)
+		return nil, false
+	}
+	return body, true
 }
 
 func (r *Receiver) Port() int {
@@ -44,7 +68,8 @@ func (r *Receiver) Start() error {
 	})
 
 	r.server = &http.Server{
-		Handler: mux,
+		Handler:           mux,
+		ReadHeaderTimeout: readHeaderTimeout,
 	}
 
 	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", r.port))
@@ -76,10 +101,8 @@ func (r *Receiver) MalformedCount() int64 {
 }
 
 func (r *Receiver) handleTraces(w http.ResponseWriter, req *http.Request) {
-	body, err := io.ReadAll(req.Body)
-	if err != nil {
-		r.malformed.Add(1)
-		http.Error(w, "read body", http.StatusBadRequest)
+	body, ok := r.readBody(w, req)
+	if !ok {
 		return
 	}
 
@@ -107,10 +130,8 @@ func (r *Receiver) handleTraces(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Receiver) handleMetrics(w http.ResponseWriter, req *http.Request) {
-	body, err := io.ReadAll(req.Body)
-	if err != nil {
-		r.malformed.Add(1)
-		http.Error(w, "read body", http.StatusBadRequest)
+	body, ok := r.readBody(w, req)
+	if !ok {
 		return
 	}
 
@@ -138,10 +159,8 @@ func (r *Receiver) handleMetrics(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Receiver) handleLogs(w http.ResponseWriter, req *http.Request) {
-	body, err := io.ReadAll(req.Body)
-	if err != nil {
-		r.malformed.Add(1)
-		http.Error(w, "read body", http.StatusBadRequest)
+	body, ok := r.readBody(w, req)
+	if !ok {
 		return
 	}
 
