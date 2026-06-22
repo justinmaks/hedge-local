@@ -24,6 +24,37 @@ func TestPricingFor_knownModel(t *testing.T) {
 	}
 }
 
+func TestPricingFor_currentModels(t *testing.T) {
+	s := tempDB(t)
+	if err := s.SeedBundledPricing(); err != nil {
+		t.Fatalf("SeedBundledPricing: %v", err)
+	}
+	now := time.Now()
+	cases := []struct {
+		model            string
+		input, output    float64
+		cacheR, cacheW   float64
+	}{
+		{"claude-opus-4-8", 5, 25, 0.50, 6.25},
+		{"claude-opus-4-5", 5, 25, 0.50, 6.25},
+		{"claude-sonnet-4-6", 3, 15, 0.30, 3.75},
+		{"claude-sonnet-4-5", 3, 15, 0.30, 3.75},
+		{"claude-haiku-4-5", 1, 5, 0.10, 1.25},
+	}
+	for _, c := range cases {
+		p, err := s.PricingFor("anthropic", c.model, now)
+		if err != nil {
+			t.Errorf("%s: PricingFor: %v", c.model, err)
+			continue
+		}
+		if p.InputPer1M != c.input || p.OutputPer1M != c.output || p.CacheReadPer1M != c.cacheR || p.CacheWritePer1M != c.cacheW {
+			t.Errorf("%s: got in=%v out=%v cr=%v cw=%v, want in=%v out=%v cr=%v cw=%v",
+				c.model, p.InputPer1M, p.OutputPer1M, p.CacheReadPer1M, p.CacheWritePer1M,
+				c.input, c.output, c.cacheR, c.cacheW)
+		}
+	}
+}
+
 func TestPricingFor_unknownModel(t *testing.T) {
 	s := tempDB(t)
 	if err := s.SeedBundledPricing(); err != nil {
