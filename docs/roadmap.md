@@ -87,6 +87,18 @@ runs above validate the actual integrations and env wiring.
 
 **Escape hatch:** Fork the community plugin as `hedge-opencode-plugin`, publish to npm under our org. Lock-in is low because the data shape is OTEL-standard — our Go receiver treats it like any other OTLP stream.
 
+### OpenCode Cost/Pricing Accuracy (deferred)
+**Why deferred:** Per user decision (2026-06-22). OpenCode collection (sessions,
+tokens, tools, attribution) is in scope, but verifying **cost/pricing accuracy**
+for OpenCode is deferred. OpenCode prefers the explicit `llm.cost.total` reported
+on its spans and falls back to the bundled pricing table; the pricing fallback
+covers Anthropic models but not the full range of providers OpenCode can use
+(OpenAI, Google, local, etc.). Validating multi-provider pricing and the
+explicit-cost path against real OpenCode sessions is a follow-up.
+
+**When to revisit:** After the Claude Code path is validated and pushed. Pair
+with the OpenCode portion of the [E2E acceptance checklist](#release-acceptance--fresh-environment-e2e-pre-v01-push).
+
 ### Budget Tracker UI + OS Notifications (deferred from MVP)
 **Why deferred:** Per user decision (2026-06-21). The `budgets` table exists in the SQLite schema (ready for v0.2 without migration), but the TUI budget tracker panel and OS notification alerts are not built in MVP.
 

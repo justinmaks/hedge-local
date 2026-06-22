@@ -157,6 +157,9 @@ Agent (Claude Code / OpenCode)
 
 Single Go binary, no CGO, pure-Go SQLite via modernc.org/sqlite.
 
+See [ARCHITECTURE.md](ARCHITECTURE.md) for component details and the
+non-obvious bits — especially how cost is attributed and derived.
+
 ## Local-Only Guarantee
 
 hcli makes **no outbound network calls** during normal operation. The only exception is `hcli pricing fetch`, which is an explicit user-initiated command that downloads pricing data from GitHub. All telemetry data stays on your machine.
