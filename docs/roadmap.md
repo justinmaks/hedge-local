@@ -1,7 +1,7 @@
 # hcli Roadmap
 
 Living document tracking what's deferred, what's planned, and what's done.
-Last updated: 2026-06-21
+Last updated: 2026-06-22
 
 ## MVP (v0.1) — 4 Phases
 
@@ -59,8 +59,21 @@ Last updated: 2026-06-21
 ### GIF Demo (deferred from Phase 4)
 **Why deferred:** Recording instructions in `docs/demo.md`. Actual GIF created post-release with real data.
 
-### Docker Images (deferred from Phase 4)
-**Why deferred:** Single binary distribution is simpler. Docker images for containerized workflows deferred to v0.2.
+### Docker Images (deferred — low priority)
+**Why deferred:** Low value for this tool. hcli is a single static, zero-dependency
+binary, and the TUI is an interactive terminal app tied to the host TTY — a poor
+fit for containers. The only legitimate use case is the **headless `collect`
+daemon**: a container publishing port `4318` with `~/.hedge` mounted as a volume,
+for users who prefer containerized services. Even then the native binary is
+simpler, so this stays optional.
+
+**When to revisit:** If users specifically request a containerized collector (e.g.
+running the receiver alongside other services in a compose stack). The TUI would
+remain a native-binary experience regardless.
+
+**If built:** Provide a minimal `collect`-only image (scratch/distroless base,
+`CGO_ENABLED=0` binary), document the `-p 4318:4318 -v ~/.hedge:/data` invocation,
+and wire it into GoReleaser's Docker support.
 
 ### Other v0.2+ items
 - Session drill-down with per-turn tree view
