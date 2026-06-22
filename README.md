@@ -63,6 +63,27 @@ go install github.com/justinmaks/hedge-local/cmd/hcli@latest
 
 Download the archive for your platform from [GitHub Releases](https://github.com/justinmaks/hedge-local/releases), extract, and add `hcli` to your PATH.
 
+### Uninstall
+
+```sh
+# 1. Stop the daemon if running
+hcli stop
+
+# 2. Remove the binary (location depends on how you installed)
+sudo rm -f /usr/local/bin/hcli          # shell installer
+rm -f "$(go env GOPATH)/bin/hcli"       # go install
+# or: sudo dpkg -r hcli   /   sudo rpm -e hcli   (.deb / .rpm)
+
+# 3. Remove local data and config (telemetry database, logs, env files)
+rm -rf ~/.hedge
+
+# 4. Remove the telemetry env line you added to your shell rc (~/.bashrc or ~/.zshrc):
+#    source ~/.hedge/env.sh
+```
+
+For OpenCode, also remove `@devtheops/opencode-plugin-otel` from the `plugin`
+array in your `opencode.json` if you no longer want it.
+
 ## Setup
 
 ### Claude Code

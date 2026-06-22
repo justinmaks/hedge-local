@@ -17,6 +17,9 @@ builds:
     binary: hcli
     env:
       - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X github.com/justinmaks/hedge-local/internal/cli.Version={{ .Version }}
     goos:
       - linux
       - darwin
@@ -32,7 +35,9 @@ archives:
   - id: default
     ids: [hcli]
     formats: [tar.gz]
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    # Version-less so `releases/latest/download/hcli_<os>_<arch>.tar.gz` (used by
+    # install.sh) has a stable name across releases.
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
         formats: [zip]
