@@ -88,15 +88,31 @@ connection.
 
 ---
 
-## 4. Fold gosec into golangci-lint
+## 4. gosec — evaluated, not adopted
 
-☐ **todo**
+☑ **done (decided against)**
 
-Rather than a standalone gosec CI job (noisy, duplicates tooling), enable the
-`gosec` linter inside `.golangci.yml` once items 1–3 above are fixed, so the
-findings above stay fixed. Scope to meaningful rules and exclude `_test.go` as
-appropriate.
+A full gosec run (2026-06-22) produced 41 findings, **all false positives or
+intentional** for this codebase:
 
-Note: `govulncheck` already runs as a blocking CI job and is the primary
-vulnerability gate. The `golang.org/x/net` advisory `GO-2026-4559` it caught was
-resolved by upgrading to `v0.51.0`.
+- **G115** (×13) — `uint64 -> int/int64` on OTEL nanosecond timestamps and
+  token counts; safe, expected conversions.
+- **G104** (×10) — already covered by `errcheck` (enabled); the rest are
+  best-effort `Scan`s.
+- **G304** (×5) — file paths the CLI user explicitly supplies (`logs`,
+  `config`, `export`).
+- **G306/G302/G301** (×7) — perms on non-secret files (`env.sh`, export output,
+  opencode config). Sensitive files are locked to 0600 at runtime (item 1),
+  which gosec's static analysis cannot see.
+- **G201/G202** (×3) — the SQL build sites use a fixed column allowlist, not
+  user input (verified).
+- **G702** (×1) — the daemon re-executing itself via `exec.Command(os.Args[0], …)`.
+
+Enabling gosec would require excluding every rule it fired, so it adds tool
+weight without signal. The high-value check it provides (G112 `ReadHeaderTimeout`)
+is already satisfied by item 2.
+
+**Security gate in place:** `errcheck`, `govet`, `staticcheck`, `ineffassign`,
+`unused` (golangci-lint) plus a blocking `govulncheck` CI job. The
+`golang.org/x/net` advisory `GO-2026-4559` that govulncheck caught was resolved
+by upgrading to `v0.51.0`.
