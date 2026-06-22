@@ -1,4 +1,11 @@
+version: 2
+
 project_name: hcli
+
+# Output to build/ rather than the default dist/, because dist/pricing/ is a
+# source package (embedded bundled pricing) — GoReleaser's --clean would delete
+# it otherwise.
+dist: build
 
 before:
   hooks:
@@ -23,19 +30,19 @@ builds:
 
 archives:
   - id: default
-    builds: [hcli]
-    format: tar.gz
+    ids: [hcli]
+    formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
     files:
       - README.md
       - LICENSE
 
 nfpms:
   - id: default
-    builds: [hcli]
+    ids: [hcli]
     formats:
       - deb
       - rpm
@@ -58,6 +65,10 @@ release:
     name: hedge-local
   draft: false
   prerelease: auto
+  # Publish install.sh as a release asset so the README quickstart
+  # (curl .../releases/latest/download/install.sh) resolves.
+  extra_files:
+    - glob: ./install.sh
 
 changelog:
   use: git

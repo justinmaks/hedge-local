@@ -6,6 +6,7 @@ docs/superpowers/
 dist/bin/
 dist/
 !dist/pricing/
+build/
 *.exe
 *.dll
 *.so
