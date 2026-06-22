@@ -87,17 +87,24 @@ runs above validate the actual integrations and env wiring.
 
 **Escape hatch:** Fork the community plugin as `hedge-opencode-plugin`, publish to npm under our org. Lock-in is low because the data shape is OTEL-standard — our Go receiver treats it like any other OTLP stream.
 
-### OpenCode Cost/Pricing Accuracy (deferred)
-**Why deferred:** Per user decision (2026-06-22). OpenCode collection (sessions,
-tokens, tools, attribution) is in scope, but verifying **cost/pricing accuracy**
-for OpenCode is deferred. OpenCode prefers the explicit `llm.cost.total` reported
-on its spans and falls back to the bundled pricing table; the pricing fallback
-covers Anthropic models but not the full range of providers OpenCode can use
-(OpenAI, Google, local, etc.). Validating multi-provider pricing and the
-explicit-cost path against real OpenCode sessions is a follow-up.
+### OpenCode E2E (DONE 2026-06-22)
+OpenCode collection is validated end-to-end against the real
+`@devtheops/opencode-plugin-otel` plugin (via Vercel AI Gateway,
+`google/gemini-2.5-flash-lite`): sessions, LLM calls, tool calls, token
+counts, cost, and `opencode` agent attribution all land correctly and render in
+the TUI, with no double-counting. Key finding: the plugin's **log events**
+(`api_request`, `tool_result`) are the reliable per-call signal — its LLM/tool
+trace spans are not reliably exported in `opencode run` — so the OpenCode
+normalizer is **log-driven** (see ARCHITECTURE.md "One source of truth per call").
+Cost uses the plugin's explicit `cost_usd`.
 
-**When to revisit:** After the Claude Code path is validated and pushed. Pair
-with the OpenCode portion of the [E2E acceptance checklist](#release-acceptance--fresh-environment-e2e-pre-v01-push).
+### OpenCode multi-provider pricing fallback (deferred)
+**Why deferred:** Per user decision (2026-06-22). OpenCode cost currently relies
+on the plugin's explicit `cost_usd` (which worked in the E2E). The bundled
+pricing fallback only covers Anthropic models, so if a provider ever omits cost,
+non-Anthropic models (OpenAI, Google, etc.) would compute `$0`. Populating
+multi-provider pricing is a follow-up; the explicit-cost path covers the common
+case today.
 
 ### Budget Tracker UI + OS Notifications (deferred from MVP)
 **Why deferred:** Per user decision (2026-06-21). The `budgets` table exists in the SQLite schema (ready for v0.2 without migration), but the TUI budget tracker panel and OS notification alerts are not built in MVP.

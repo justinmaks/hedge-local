@@ -74,6 +74,7 @@ func TestCompositeNormalizer_logsRouteToCorrectAgent(t *testing.T) {
 						Attributes: []*commonpb.KeyValue{
 							{Key: "event.name", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "api_request"}}},
 							{Key: "session.id", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "sess-o"}}},
+							{Key: "model", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "google/gemini-2.5-flash-lite"}}},
 						},
 					},
 				},
