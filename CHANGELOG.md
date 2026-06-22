@@ -9,7 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates, and Dependabot config.
-- CI: `govulncheck`, `gosec`, and race-enabled tests.
+- CI: blocking `govulncheck` job and race-enabled tests.
+
+### Security
+- `~/.hedge/` is now created `0700` and the SQLite database (plus WAL/SHM) and
+  daemon logs `0600`, keeping captured telemetry owner-only.
+- OTLP receiver bounds each request body (`http.MaxBytesReader`, 16 MiB) and sets
+  `ReadHeaderTimeout`.
+- `hcli query` runs on a read-only (`query_only`) database connection.
+- Upgraded `golang.org/x/net` to `v0.51.0` (resolves `GO-2026-4559`).
 
 ## [0.1.0] - 2026-06-21
 

@@ -33,6 +33,46 @@ Last updated: 2026-06-22
 
 ---
 
+## Release Acceptance — Fresh-Environment E2E (pre-v0.1 push)
+
+Before the first public release, run a full end-to-end test from a clean slate to
+prove the real user journey works, not just unit/integration tests.
+
+### Clean-slate setup
+- [ ] Remove all prior state: `~/.hedge/` (config, `hedge.db`, `daemon.log`,
+      `env.sh`, `opencode-env.sh`), any installed `hcli` binary, and the
+      `@devtheops/opencode-plugin-otel` entry from `~/.config/opencode/opencode.json`.
+- [ ] Build a fresh binary from `main` (`go build ./cmd/hcli`).
+- [ ] `hcli setup claude` and `hcli setup opencode`, then source the env files.
+
+### Claude Code path
+- [ ] Start `hcli collect -d` (or embedded `hcli`).
+- [ ] Run a real Claude Code session generating LLM + tool activity.
+- [ ] Verify rows land in `sessions`, `llm_calls`, `tool_calls` with
+      `agent = "claude-code"`, non-zero tokens, and computed cost.
+- [ ] TUI Overview/Cost/Tools/Models reflect the session; Live view shows it;
+      the **agent/harness column correctly attributes rows to Claude Code**.
+
+### OpenCode path
+- [ ] Run a real OpenCode session (with the plugin active).
+- [ ] Verify rows land with `agent = "opencode"`, correct tokens, and cost from
+      explicit plugin cost or pricing fallback (no double-counting between
+      traces and logs).
+- [ ] TUI accurately attributes rows to OpenCode and keeps the two agents'
+      data distinct across all views (Projects, Models, Cost, Live).
+
+### Cross-cutting
+- [ ] Both agents writing concurrently are stored without DB lock errors.
+- [ ] `hcli export` (CSV/JSON/Markdown) and `hcli query` reflect both agents.
+- [ ] `~/.hedge/` is `0700`, `hedge.db`/`daemon.log` are `0600`.
+- [ ] `hcli status` / `stop` / `logs` behave correctly.
+
+A scripted synthetic-OTLP E2E (driving the real receiver with both agents'
+payload shapes) covers attribution and storage automatically; the real-agent
+runs above validate the actual integrations and env wiring.
+
+---
+
 ## Deferred to v0.2+
 
 ### Custom OpenCode Plugin (deferred from MVP)
@@ -106,3 +146,7 @@ and wire it into GoReleaser's Docker support.
 | 2026-06-21 | Simple fork daemon (not systemd) for MVP | Cross-platform, no root, no extra repos. systemd/launchd deferred to v0.2 |
 | 2026-06-21 | Tag-triggered releases (not auto-release on main push) | Deliberate release control, no accidental releases |
 | 2026-06-21 | Deferred Homebrew to v0.2 | Shell installer covers macOS; no separate tap repo needed yet |
+| 2026-06-22 | `~/.hedge` 0700, DB/logs 0600 | Captured telemetry (prompts/logs with --with-logs) kept owner-only |
+| 2026-06-22 | OTLP body cap (16 MiB) + ReadHeaderTimeout | Bound memory/connection use even though receiver is localhost-only |
+| 2026-06-22 | `hcli query` uses read-only (query_only) connection | Defense-in-depth behind the SELECT/WITH prefix check |
+| 2026-06-22 | govulncheck gate; no gosec | govulncheck caught a real x/net advisory; gosec's 41 findings were all false positives/intentional here |
