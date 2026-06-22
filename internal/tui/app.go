@@ -55,7 +55,6 @@ type App struct {
 	dateSaved  DateFilter
 	collecting bool
 	spanCount  int
-	err        error
 }
 
 func NewApp(service *queries.Service, collecting bool) *App {

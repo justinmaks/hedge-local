@@ -85,12 +85,12 @@ func runCollect(cmd *cobra.Command, args []string) error {
 	if err := r.Start(); err != nil {
 		return fmt.Errorf("start receiver: %w", err)
 	}
-	defer r.Stop()
+	defer func() { _ = r.Stop() }()
 
 	if os.Getenv("HCLI_DAEMON_CHILD") == "1" {
 		pidPath := defaultPIDPath()
 		_ = writePIDFile(pidPath, os.Getpid())
-		defer removePIDFile(pidPath)
+		defer func() { _ = removePIDFile(pidPath) }()
 	}
 
 	logDir := filepath.Dir(db)

@@ -88,7 +88,7 @@ func forkDaemon(cmd *cobra.Command, args []string) error {
 	pidPath := defaultPIDPath()
 
 	if pid, err := readPIDFile(pidPath); err == nil && processAlive(pid) {
-		return fmt.Errorf("daemon already running (PID %d). Run 'hcli stop' first.", pid)
+		return fmt.Errorf("daemon already running (PID %d); run 'hcli stop' first", pid)
 	}
 
 	logPath := defaultLogPath()

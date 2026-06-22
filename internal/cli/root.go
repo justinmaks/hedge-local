@@ -61,7 +61,7 @@ func runRoot(cmd *cobra.Command, args []string) error {
 		svc := queries.NewService(s)
 		return runTUIApp(svc, false)
 	}
-	defer r.Stop()
+	defer func() { _ = r.Stop() }()
 
 	svc := queries.NewService(s)
 	return runTUIApp(svc, true)

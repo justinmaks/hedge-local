@@ -76,12 +76,12 @@ func (s *Service) OverviewSummary(from, to time.Time) (OverviewStats, error) {
 	weekAgo := to.Add(-7 * 24 * time.Hour)
 	twoWeeksAgo := to.Add(-14 * 24 * time.Hour)
 	var prevWeekCost float64
-	db.QueryRow(
+	_ = db.QueryRow(
 		`SELECT COALESCE(SUM(total_cost_usd), 0) FROM sessions WHERE started_at BETWEEN ? AND ?`,
 		twoWeeksAgo, weekAgo,
 	).Scan(&prevWeekCost)
 
-	db.QueryRow(
+	_ = db.QueryRow(
 		`SELECT COALESCE(SUM(total_cost_usd), 0) FROM sessions WHERE started_at BETWEEN ? AND ?`,
 		weekAgo, to,
 	).Scan(&stats.WeekCost)
@@ -177,7 +177,7 @@ func (s *Service) CostByDimension(from, to time.Time, dim string) ([]CostBreakdo
 	}
 
 	var totalCost float64
-	db.QueryRow(
+	_ = db.QueryRow(
 		`SELECT COALESCE(SUM(total_cost_usd), 0) FROM sessions WHERE started_at BETWEEN ? AND ?`,
 		from, to,
 	).Scan(&totalCost)
@@ -221,7 +221,7 @@ func (s *Service) costByModel(from, to time.Time) ([]CostBreakdown, error) {
 	db := s.store.DB()
 
 	var totalCost float64
-	db.QueryRow(
+	_ = db.QueryRow(
 		`SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls lc
 		 JOIN sessions s ON lc.session_id = s.id
 		 WHERE s.started_at BETWEEN ? AND ?`,
@@ -492,11 +492,12 @@ func (s *Service) RecentSpansInRange(from, to time.Time, limit int, filter, agen
 		SELECT timestamp as ts, agent, 'event' as span_type, event_name as detail, 0 as tokens, 0 as cost
 		FROM events` + spanFilterClause(hasRange, hasAgent, "timestamp", "agent") + `
 		) ORDER BY ts DESC LIMIT ?`
-	if filter == "llm" {
+	switch filter {
+	case "llm":
 		query = `SELECT started_at, agent, 'llm' as type, model, input_tokens + output_tokens, cost_usd FROM llm_calls` + spanFilterClause(hasRange, hasAgent, "started_at", "agent") + ` ORDER BY started_at DESC LIMIT ?`
-	} else if filter == "tool" {
+	case "tool":
 		query = `SELECT started_at, agent, 'tool' as type, tool_name, 0, 0 FROM tool_calls` + spanFilterClause(hasRange, hasAgent, "started_at", "agent") + ` ORDER BY started_at DESC LIMIT ?`
-	} else if filter == "event" {
+	case "event":
 		query = `SELECT timestamp, agent, 'event' as type, event_name, 0, 0 FROM events` + spanFilterClause(hasRange, hasAgent, "timestamp", "agent") + ` ORDER BY timestamp DESC LIMIT ?`
 	}
 	args := spanQueryArgs(hasRange, hasAgent, from, to, agent, filter, limit)
@@ -517,13 +518,6 @@ func (s *Service) RecentSpansInRange(from, to time.Time, limit int, filter, agen
 		return nil, fmt.Errorf("recent spans rows: %w", err)
 	}
 	return result, nil
-}
-
-func spanRangeClause(hasRange bool, column string) string {
-	if !hasRange {
-		return ""
-	}
-	return " WHERE " + column + " BETWEEN ? AND ?"
 }
 
 func spanFilterClause(hasRange, hasAgent bool, timeColumn, agentColumn string) string {
