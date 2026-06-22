@@ -31,7 +31,7 @@ func runSetupClaude(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("get home dir: %w", err)
 	}
 	hedgeDir := filepath.Join(home, ".hedge")
-	if err := os.MkdirAll(hedgeDir, 0755); err != nil {
+	if err := mkdirSecure(hedgeDir); err != nil {
 		return fmt.Errorf("create ~/.hedge: %w", err)
 	}
 

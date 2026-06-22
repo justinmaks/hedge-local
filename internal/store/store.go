@@ -15,9 +15,12 @@ type Store struct {
 
 func New(path string) (*Store, error) {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, fmt.Errorf("create db dir: %w", err)
 	}
+	// MkdirAll is a no-op on an existing dir, so enforce 0700 explicitly to
+	// downgrade directories created by older versions (which used 0755).
+	_ = os.Chmod(dir, 0700)
 	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)", path)
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -28,6 +31,13 @@ func New(path string) (*Store, error) {
 	if err := s.migrate(); err != nil {
 		db.Close()
 		return nil, err
+	}
+	// The database can contain prompt/log content with --with-logs, so keep it
+	// owner-only. WAL/SHM sidecars are created by migrate's writes.
+	for _, suffix := range []string{"", "-wal", "-shm"} {
+		if _, err := os.Stat(path + suffix); err == nil {
+			_ = os.Chmod(path+suffix, 0600)
+		}
 	}
 	return s, nil
 }

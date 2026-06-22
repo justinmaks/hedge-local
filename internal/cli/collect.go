@@ -94,7 +94,7 @@ func runCollect(cmd *cobra.Command, args []string) error {
 	}
 
 	logDir := filepath.Dir(db)
-	logFile, err := os.OpenFile(filepath.Join(logDir, "daemon.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	logFile, err := openSecureAppendLog(filepath.Join(logDir, "daemon.log"))
 	if err != nil {
 		log.Printf("warning: could not open log file: %v", err)
 	} else {

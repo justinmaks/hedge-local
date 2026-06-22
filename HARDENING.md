@@ -11,7 +11,9 @@ Status legend: ☐ todo · ☑ done
 
 ## 1. Restrict permissions on local data (`~/.hedge/`)
 
-☐ **todo**
+☑ **done** — `~/.hedge` and the SQLite DB (+ WAL/SHM) are now owner-only
+(`0700`/`0600`) via `mkdirSecure`/`openSecureAppendLog` (`internal/cli/perms.go`)
+and `store.New`. Existing 0755 dirs are downgraded on next run.
 
 The config/data directory is created `0755` and files are written `0644`. With
 `hcli collect --with-logs`, the SQLite database can contain prompt and log

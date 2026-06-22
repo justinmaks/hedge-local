@@ -30,7 +30,7 @@ func defaultLogPath() string {
 }
 
 func writePIDFile(path string, pid int) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := mkdirSecure(filepath.Dir(path)); err != nil {
 		return fmt.Errorf("create pid dir: %w", err)
 	}
 	return os.WriteFile(path, []byte(fmt.Sprintf("%d\n", pid)), 0644)
@@ -92,11 +92,11 @@ func forkDaemon(cmd *cobra.Command, args []string) error {
 	}
 
 	logPath := defaultLogPath()
-	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
+	if err := mkdirSecure(filepath.Dir(logPath)); err != nil {
 		return fmt.Errorf("create log dir: %w", err)
 	}
 
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	logFile, err := openSecureAppendLog(logPath)
 	if err != nil {
 		return fmt.Errorf("open log file: %w", err)
 	}

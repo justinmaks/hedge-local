@@ -47,7 +47,7 @@ func configureOpenCode(configPath, envPath string) error {
 	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
 		return fmt.Errorf("create opencode config dir: %w", err)
 	}
-	if err := os.MkdirAll(filepath.Dir(envPath), 0755); err != nil {
+	if err := mkdirSecure(filepath.Dir(envPath)); err != nil {
 		return fmt.Errorf("create env dir: %w", err)
 	}
 

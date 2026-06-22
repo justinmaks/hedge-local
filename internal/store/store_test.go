@@ -1,9 +1,40 @@
 package store
 
 import (
+	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
+
+func TestNew_restrictsPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX permission bits not meaningful on Windows")
+	}
+	dir := filepath.Join(t.TempDir(), "hedge")
+	dbFile := filepath.Join(dir, "hedge.db")
+	s, err := New(dbFile)
+	if err != nil {
+		t.Fatalf("New store: %v", err)
+	}
+	t.Cleanup(func() { s.Close() })
+
+	dirInfo, err := os.Stat(dir)
+	if err != nil {
+		t.Fatalf("stat dir: %v", err)
+	}
+	if perm := dirInfo.Mode().Perm(); perm != 0o700 {
+		t.Errorf("data dir perm = %o, want 700", perm)
+	}
+
+	fileInfo, err := os.Stat(dbFile)
+	if err != nil {
+		t.Fatalf("stat db: %v", err)
+	}
+	if perm := fileInfo.Mode().Perm(); perm != 0o600 {
+		t.Errorf("db file perm = %o, want 600", perm)
+	}
+}
 
 func tempDB(t *testing.T) *Store {
 	t.Helper()
