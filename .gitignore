@@ -1,0 +1,32 @@
+# Local visual/scaffolding artifacts
+.superpowers/
+docs/superpowers/
+
+# Build artifacts
+dist/bin/
+dist/
+!dist/pricing/
+*.exe
+*.dll
+*.so
+*.dylib
+hcli
+
+# Test artifacts
+*.test
+*.out
+coverage.txt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+vendor/

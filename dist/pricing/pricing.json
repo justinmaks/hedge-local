@@ -1,0 +1,38 @@
+[
+  {
+    "provider": "anthropic",
+    "model": "claude-sonnet-4",
+    "input_per_1m": 3.00,
+    "output_per_1m": 15.00,
+    "cache_read_per_1m": 0.30,
+    "cache_write_per_1m": 3.75,
+    "effective_from": "2025-05-22T00:00:00Z"
+  },
+  {
+    "provider": "anthropic",
+    "model": "claude-opus-4",
+    "input_per_1m": 15.00,
+    "output_per_1m": 75.00,
+    "cache_read_per_1m": 1.50,
+    "cache_write_per_1m": 18.75,
+    "effective_from": "2025-05-22T00:00:00Z"
+  },
+  {
+    "provider": "anthropic",
+    "model": "claude-haiku-4",
+    "input_per_1m": 0.80,
+    "output_per_1m": 4.00,
+    "cache_read_per_1m": 0.08,
+    "cache_write_per_1m": 1.00,
+    "effective_from": "2025-05-22T00:00:00Z"
+  },
+  {
+    "provider": "anthropic",
+    "model": "claude-3-5-sonnet",
+    "input_per_1m": 3.00,
+    "output_per_1m": 15.00,
+    "cache_read_per_1m": 0.30,
+    "cache_write_per_1m": 3.75,
+    "effective_from": "2024-10-22T00:00:00Z"
+  }
+]
