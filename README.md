@@ -37,14 +37,20 @@ curl -fsSL https://github.com/justinmaks/hedge-local/releases/latest/download/in
 
 ### Debian/Ubuntu (.deb)
 
+Download the `.deb` for your architecture from the
+[latest release](https://github.com/justinmaks/hedge-local/releases/latest), then:
+
 ```sh
-sudo dpkg -i hcli_0.1.0_linux_amd64.deb
+sudo dpkg -i hcli_*_linux_amd64.deb
 ```
 
 ### Fedora/RHEL (.rpm)
 
+Download the `.rpm` for your architecture from the
+[latest release](https://github.com/justinmaks/hedge-local/releases/latest), then:
+
 ```sh
-sudo rpm -i hcli_0.1.0_linux_amd64.rpm
+sudo rpm -i hcli_*_linux_amd64.rpm
 ```
 
 ### go install
