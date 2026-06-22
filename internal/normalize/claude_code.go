@@ -2,7 +2,6 @@ package normalize
 
 import (
 	"encoding/hex"
-	"fmt"
 	"strings"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 	coltracepb "go.opentelemetry.io/proto/otlp/collector/trace/v1"
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
 	logspb "go.opentelemetry.io/proto/otlp/logs/v1"
-	metricpb "go.opentelemetry.io/proto/otlp/metrics/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 )
 
@@ -91,86 +89,15 @@ func (n *ClaudeCodeNormalizer) traceSpanToEvent(span *tracepb.Span, projectPath 
 	}
 }
 
+// NormalizeMetrics intentionally produces no events. Claude Code reports the
+// same LLM usage through both trace spans and the claude_code.cost.usage /
+// token.usage metrics. The two streams share no per-call key (metrics have no
+// span_id and their timestamps don't line up with span start times), so traces
+// are the single source of truth for llm_calls. Deriving rows from metrics as
+// well would double-count every call. Per-call cost comes from the pricing
+// table applied to the trace-derived tokens in the writer.
 func (n *ClaudeCodeNormalizer) NormalizeMetrics(req *colmetricspb.ExportMetricsServiceRequest) ([]Event, error) {
-	type metricGroup struct {
-		event Event
-		llm   LLMCallData
-	}
-	groups := make(map[string]*metricGroup)
-	for _, rm := range req.ResourceMetrics {
-		projectPath := firstAttrString(rm.Resource.GetAttributes(), "hcli.project_path", "project.path", "process.cwd")
-		for _, sm := range rm.ScopeMetrics {
-			for _, metric := range sm.Metrics {
-				if metric.Name != "claude_code.cost.usage" && metric.Name != "claude_code.token.usage" {
-					continue
-				}
-				for _, dp := range metricDataPoints(metric) {
-					sessionID := attrString(dp.Attributes, "session.id")
-					model := attrString(dp.Attributes, "model")
-					if sessionID == "" || model == "" {
-						continue
-					}
-					ts := time.Unix(0, int64(dp.TimeUnixNano))
-					if ts.IsZero() {
-						ts = time.Now()
-					}
-					key := fmt.Sprintf("%s\x00%s\x00%d", sessionID, model, dp.TimeUnixNano)
-					group := groups[key]
-					if group == nil {
-						group = &metricGroup{
-							event: Event{Type: EventLLMCall, Timestamp: ts, Agent: "claude_code", SessionID: sessionID, ProjectPath: projectPath},
-							llm:   LLMCallData{StartedAt: ts, Model: model, Provider: "anthropic"},
-						}
-						groups[key] = group
-					}
-					value := metricPointValue(dp)
-					switch metric.Name {
-					case "claude_code.cost.usage":
-						group.llm.CostUSD += value
-					case "claude_code.token.usage":
-						switch attrString(dp.Attributes, "type") {
-						case "input":
-							group.llm.InputTokens += int(value)
-						case "output":
-							group.llm.OutputTokens += int(value)
-						case "cacheRead":
-							group.llm.CacheReadTokens += int(value)
-						case "cacheCreation":
-							group.llm.CacheWriteTokens += int(value)
-						}
-					}
-				}
-			}
-		}
-	}
-	events := make([]Event, 0, len(groups))
-	for _, group := range groups {
-		llm := group.llm
-		group.event.LLMCall = &llm
-		events = append(events, group.event)
-	}
-	return events, nil
-}
-
-func metricDataPoints(metric *metricpb.Metric) []*metricpb.NumberDataPoint {
-	if sum := metric.GetSum(); sum != nil {
-		return sum.DataPoints
-	}
-	if gauge := metric.GetGauge(); gauge != nil {
-		return gauge.DataPoints
-	}
-	return nil
-}
-
-func metricPointValue(dp *metricpb.NumberDataPoint) float64 {
-	switch v := dp.Value.(type) {
-	case *metricpb.NumberDataPoint_AsDouble:
-		return v.AsDouble
-	case *metricpb.NumberDataPoint_AsInt:
-		return float64(v.AsInt)
-	default:
-		return 0
-	}
+	return nil, nil
 }
 
 func (n *ClaudeCodeNormalizer) NormalizeLogs(req *collogspb.ExportLogsServiceRequest) ([]Event, error) {

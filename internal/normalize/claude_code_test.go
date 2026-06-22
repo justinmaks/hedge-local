@@ -192,7 +192,12 @@ func TestNormalizeTraces_currentClaudeToolSpan(t *testing.T) {
 	}
 }
 
-func TestNormalizeMetrics_claudeCostAndTokenUsage(t *testing.T) {
+// Claude Code emits the same LLM call via both a trace span and the
+// claude_code.cost.usage / token.usage metrics. Those two streams cannot be
+// reliably joined (metrics carry no span_id and their timestamps don't match
+// span start times), so traces are the single source of truth for llm_calls and
+// metrics must NOT create rows — otherwise every call is double-counted.
+func TestNormalizeMetrics_doesNotCreateLLMCalls(t *testing.T) {
 	n := &ClaudeCodeNormalizer{}
 	now := uint64(time.Now().UnixNano())
 	attrs := []*commonpb.KeyValue{
@@ -214,8 +219,6 @@ func TestNormalizeMetrics_claudeCostAndTokenUsage(t *testing.T) {
 			},
 			claudeTokenMetric(now, attrs, "input", 1000),
 			claudeTokenMetric(now, attrs, "output", 500),
-			claudeTokenMetric(now, attrs, "cacheRead", 250),
-			claudeTokenMetric(now, attrs, "cacheCreation", 125),
 		}}},
 	}}}
 
@@ -223,15 +226,8 @@ func TestNormalizeMetrics_claudeCostAndTokenUsage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NormalizeMetrics: %v", err)
 	}
-	if len(events) != 1 {
-		t.Fatalf("expected 1 event, got %d", len(events))
-	}
-	llm := events[0].LLMCall
-	if events[0].SessionID != "sess-metrics" || events[0].ProjectPath != "/tmp/project" || llm.Model != "claude-sonnet-4-5" {
-		t.Fatalf("event mismatch: %#v", events[0])
-	}
-	if llm.CostUSD != 0.0123 || llm.InputTokens != 1000 || llm.OutputTokens != 500 || llm.CacheReadTokens != 250 || llm.CacheWriteTokens != 125 {
-		t.Fatalf("llm mismatch: %#v", llm)
+	if len(events) != 0 {
+		t.Fatalf("expected 0 events (traces are canonical for llm_calls), got %d", len(events))
 	}
 }
 
