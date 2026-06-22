@@ -66,7 +66,11 @@ gosec rules: G112 (missing `ReadHeaderTimeout`), G114-adjacent.
 
 ## 3. Open a read-only connection for `hcli query`
 
-☐ **todo**
+☑ **done** — `store.NewReadOnly` opens the database with the `query_only`
+PRAGMA, refusing all writes at the SQLite level. `hcli query` ensures the schema
+exists (idempotent) and then runs user SQL on that read-only connection, behind
+the existing SELECT/WITH prefix check (`internal/store/store.go`,
+`internal/cli/query.go`).
 
 `hcli query` enforces read-only access by checking that the SQL starts with
 `SELECT` or `WITH` (`internal/cli/query.go:27`), but the underlying database is

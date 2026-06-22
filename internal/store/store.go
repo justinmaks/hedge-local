@@ -42,6 +42,21 @@ func New(path string) (*Store, error) {
 	return s, nil
 }
 
+// NewReadOnly opens an existing database for read-only access. The connection
+// sets the query_only PRAGMA so any write (DML, DDL, or PRAGMA write) is
+// refused at the SQLite level. It does not run migrations and assumes the
+// database already exists. Used by `hcli query` as defense-in-depth behind the
+// SELECT/WITH prefix check.
+func NewReadOnly(path string) (*Store, error) {
+	dsn := fmt.Sprintf("file:%s?_pragma=query_only(true)&_pragma=busy_timeout(5000)", path)
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("open sqlite (read-only): %w", err)
+	}
+	db.SetMaxOpenConns(1)
+	return &Store{db: db}, nil
+}
+
 func (s *Store) Close() error {
 	return s.db.Close()
 }

@@ -33,9 +33,18 @@ func runQuery(cmd *cobra.Command, args []string) error {
 		db = config.DefaultDBPath()
 	}
 
-	s, err := store.New(db)
+	// Ensure the schema exists (idempotent) so queries on a fresh machine
+	// return empty results rather than "no such table", then run the user's
+	// SQL on a read-only connection that refuses writes.
+	init, err := store.New(db)
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
+	}
+	init.Close()
+
+	s, err := store.NewReadOnly(db)
+	if err != nil {
+		return fmt.Errorf("open store (read-only): %w", err)
 	}
 	defer s.Close()
 
