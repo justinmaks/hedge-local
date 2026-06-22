@@ -9,7 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `SECURITY.md`, `CODE_OF_CONDUCT.md`, issue/PR templates, and Dependabot config.
+- `ARCHITECTURE.md` documenting the pipeline and per-agent cost attribution.
 - CI: blocking `govulncheck` job and race-enabled tests.
+
+### Fixed
+- **Claude Code double-counting:** the same LLM call was recorded from both trace
+  spans and metrics, doubling token totals. Traces are now the single source of
+  truth; metrics no longer create rows.
+- **OpenCode collection:** sessions arrived but LLM/tool calls did not, because
+  the `@devtheops` plugin's per-call data comes as log events, not the trace
+  spans we read. OpenCode is now log-driven (`api_request` → llm_call,
+  `tool_result` → tool_call) with explicit cost, matching Claude Code's
+  single-canonical-signal rule.
+- Refreshed bundled pricing with current Claude models (Opus 4.5–4.8, Sonnet
+  4.5/4.6, Haiku 4.5, Fable 5); previously cost computed to `$0` for these.
 
 ### Security
 - `~/.hedge/` is now created `0700` and the SQLite database (plus WAL/SHM) and

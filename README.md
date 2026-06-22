@@ -173,7 +173,18 @@ Local data lives in `~/.hedge/` and is stored owner-only: the directory is creat
 - Verify env vars are set: `echo $OTEL_EXPORTER_OTLP_ENDPOINT` (should be `http://localhost:4318`)
 - Check daemon is running: `hcli status`
 - Check daemon logs: `hcli logs`
-- For OpenCode: verify plugin is in `opencode.json`
+
+### OpenCode: no telemetry appearing
+
+- The telemetry env vars must be set **in the shell that launches `opencode`** —
+  `source ~/.hedge/opencode-env.sh` in that shell (or add it to your shell rc).
+  If `OPENCODE_ENABLE_TELEMETRY` is unset, the plugin stays disabled and sends
+  nothing.
+- Verify the `@devtheops/opencode-plugin-otel` plugin is in your `opencode.json`.
+- Let the session finish normally. The plugin batches telemetry and flushes it
+  on a timer / on exit; a very short `opencode run` that exits instantly can race
+  the final flush. Interactive sessions and runs that do real work flush
+  reliably.
 
 ### Port 4318 already in use
 

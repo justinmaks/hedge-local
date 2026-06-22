@@ -52,7 +52,8 @@ Agent → OTLP/HTTP → Receiver → Normalizer → Writer → SQLite → TUI vi
 2. Add the new normalizer to `normalize.NewCompositeNormalizer()` in `internal/cli/collect.go`.
 3. Create `hcli setup <agent>` command in `internal/cli/`.
 4. Add tests for the normalizer and an integration test for the full pipeline.
-5. Only recognize spans/logs/metrics that belong to your agent — ignore everything else to avoid duplicate rows.
+5. Only recognize signals that belong to your agent — ignore everything else, so two normalizers never claim the same data.
+6. **Pick one canonical signal per agent** for `llm_calls`/`tool_calls` and make the others inert (return `nil`). Agents report the same call through multiple signals (traces, metrics, logs); deriving rows from more than one double-counts, and session totals are a running sum. Claude Code is trace-driven; OpenCode is log-driven. See [ARCHITECTURE.md](ARCHITECTURE.md#one-source-of-truth-per-call) for the rationale.
 
 ## Adding a New TUI View
 
