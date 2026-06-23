@@ -83,8 +83,8 @@ func (v *OverviewView) Render(width, height int, theme *tui.Theme) string {
 	}
 
 	cards := []string{
-		renderCard("Today Cost", fmt.Sprintf("$%.2f", v.stats.TodayCost), cardWidth, theme),
-		renderCard("Today Tokens", fmt.Sprintf("%d", v.stats.TodayTokens), cardWidth, theme),
+		renderCard("Cost", fmt.Sprintf("$%.2f", v.stats.TodayCost), cardWidth, theme),
+		renderCard("Tokens", fmt.Sprintf("%d", v.stats.TodayTokens), cardWidth, theme),
 		renderCard("Sessions", fmt.Sprintf("%d", v.stats.TodaySessions), cardWidth, theme),
 		renderCard("7-day Cost", fmt.Sprintf("$%.2f %s", v.stats.WeekCost, deltaStr), cardWidth, theme),
 	}

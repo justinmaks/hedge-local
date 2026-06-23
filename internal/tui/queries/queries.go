@@ -452,8 +452,8 @@ func (s *Service) ProjectSummary(from, to time.Time) ([]ProjectStats, error) {
 		if err := rows.Scan(&ps.Path, &ps.Name, &ps.Sessions, &ps.Cost, &ps.Tokens, &lastActive); err != nil {
 			return nil, err
 		}
-		if lastActive.Valid && lastActive.String != "" {
-			if t, perr := time.Parse(time.RFC3339, lastActive.String); perr == nil {
+		if lastActive.Valid {
+			if t, ok := parseStoredTime(lastActive.String); ok {
 				ps.LastActive = t
 			}
 		}
@@ -518,6 +518,33 @@ func (s *Service) RecentSpansInRange(from, to time.Time, limit int, filter, agen
 		return nil, fmt.Errorf("recent spans rows: %w", err)
 	}
 	return result, nil
+}
+
+// parseStoredTime parses a timestamp as stored by the modernc SQLite driver.
+// The driver persists time.Time via its String() representation, e.g.
+// "2006-01-02 15:04:05.999999999 -0700 MST" optionally followed by a monotonic
+// clock reading (" m=..."), which standard layouts cannot parse. This is only
+// needed when reading aggregate results (e.g. MAX(started_at)) as raw strings;
+// direct column scans are converted by the driver. RFC3339 is also accepted as
+// a fallback.
+func parseStoredTime(s string) (time.Time, bool) {
+	if s == "" {
+		return time.Time{}, false
+	}
+	if i := strings.Index(s, " m="); i != -1 {
+		s = s[:i]
+	}
+	for _, layout := range []string{
+		"2006-01-02 15:04:05.999999999 -0700 MST",
+		"2006-01-02 15:04:05 -0700 MST",
+		time.RFC3339Nano,
+		time.RFC3339,
+	} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
 }
 
 func spanFilterClause(hasRange, hasAgent bool, timeColumn, agentColumn string) string {

@@ -246,6 +246,32 @@ func TestModelSummary(t *testing.T) {
 	}
 }
 
+func TestParseStoredTime(t *testing.T) {
+	cases := []struct {
+		name  string
+		in    string
+		valid bool
+	}{
+		{"modernc String() with monotonic", "2026-06-22 15:34:09.839719267 -0400 EDT m=-17999.963875754", true},
+		{"modernc String() no monotonic", "2026-06-22 15:16:00 -0400 EDT", true},
+		{"rfc3339nano", "2026-06-22T15:34:09.839719267-04:00", true},
+		{"rfc3339", "2026-06-22T15:34:09-04:00", true},
+		{"empty", "", false},
+		{"garbage", "not-a-time", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			tm, ok := parseStoredTime(c.in)
+			if ok != c.valid {
+				t.Fatalf("parseStoredTime(%q) ok=%v, want %v", c.in, ok, c.valid)
+			}
+			if c.valid && tm.IsZero() {
+				t.Errorf("parseStoredTime(%q) returned zero time", c.in)
+			}
+		})
+	}
+}
+
 func TestProjectSummary(t *testing.T) {
 	s := seedTestStore(t)
 	svc := NewService(s)
@@ -260,6 +286,9 @@ func TestProjectSummary(t *testing.T) {
 	}
 	if projects[0].Name != "test-project" {
 		t.Errorf("project name: got %q, want test-project", projects[0].Name)
+	}
+	if projects[0].LastActive.IsZero() {
+		t.Errorf("LastActive should be populated from the session's started_at, got zero")
 	}
 }
 
