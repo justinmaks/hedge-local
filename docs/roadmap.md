@@ -134,9 +134,29 @@ remain a native-binary experience regardless.
 `CGO_ENABLED=0` binary), document the `-p 4318:4318 -v ~/.hedge:/data` invocation,
 and wire it into GoReleaser's Docker support.
 
+### Codex CLI support (deferred to v0.2)
+**Why deferred:** Codex CLI has full OTEL support but it's **undocumented**, and
+metrics are **on by default and sent to OpenAI's Statsig** endpoint. Adding it
+responsibly means more than a normalizer — we need a `hcli setup codex` that
+automates the `config.toml` wiring **and disables the default Statsig export** so
+no telemetry leaves the machine, which would otherwise contradict hcli's
+local-only guarantee.
+
+**Scope when built:**
+- `hcli setup codex` — write the Codex `config.toml` OTEL settings pointing at
+  `localhost:4318`, and disable/redirect the default Statsig metrics export.
+- A `CodexNormalizer` following the established per-agent pattern: pick the one
+  canonical signal Codex emits completely per call (verify whether that's traces,
+  metrics, or logs — same investigation we did for OpenCode) and make the others
+  inert to avoid double-counting (see ARCHITECTURE.md).
+- Pricing rows for the OpenAI models Codex uses (cost is otherwise `$0`).
+- Add `codex` to the repo description/topics once supported.
+
+**When to revisit:** After v0.1 stabilizes, or on user request. Until then the
+README and repo description intentionally list only Claude Code and OpenCode.
+
 ### Other v0.2+ items
 - Session drill-down with per-turn tree view
-- Codex CLI support (needs `config.toml` setup automation + disable Statsig)
 - OTLP/gRPC receiver (port 4317)
 - Trace visualization (span tree / waterfall)
 - Prometheus pull exporter
