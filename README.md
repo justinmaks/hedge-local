@@ -1,9 +1,8 @@
-# hcli — Local-only Telemetry TUI for Coding Agents
+# hcli: Local-only Telemetry TUI for Coding Agents
 
 [![CI](https://github.com/justinmaks/hedge-local/actions/workflows/ci.yml/badge.svg)](https://github.com/justinmaks/hedge-local/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/justinmaks/hedge-local?sort=semver)](https://github.com/justinmaks/hedge-local/releases)
 [![Go Reference](https://pkg.go.dev/badge/github.com/justinmaks/hedge-local.svg)](https://pkg.go.dev/github.com/justinmaks/hedge-local)
-[![Go Report Card](https://goreportcard.com/badge/github.com/justinmaks/hedge-local)](https://goreportcard.com/report/github.com/justinmaks/hedge-local)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 hcli collects OpenTelemetry (OTEL) telemetry from coding agents (Claude Code, OpenCode) into a local SQLite database and visualizes cost, tokens, tool usage, and latency in a terminal UI. Single Go binary, no cloud, no account, no telemetry home.
@@ -19,7 +18,7 @@ source ~/.hedge/env.sh
 hcli
 ```
 
-Start using Claude Code — telemetry appears in the TUI within 60 seconds.
+Start coding, and telemetry appears in the TUI within 60 seconds.
 
 ## What It Does
 
@@ -27,7 +26,7 @@ Start using Claude Code — telemetry appears in the TUI within 60 seconds.
 - **Stores** it in a local SQLite database (WAL mode, no external services)
 - **Visualizes** cost, tokens, tools, models, projects, and live activity in a 7-view TUI
 - **Exports** data as CSV, JSON, or Markdown
-- **Local-only** — no usage data leaves your machine
+- **Local-only**: no usage data leaves your machine
 
 ## Screenshots
 
@@ -111,7 +110,7 @@ hcli setup claude
 source ~/.hedge/env.sh
 ```
 
-This writes OTEL environment variables to `~/.hedge/env.sh`. Add `source ~/.hedge/env.sh` to your shell rc file (`~/.bashrc` or `~/.zshrc`).
+Writes OTEL env vars to `~/.hedge/env.sh`. Add `source ~/.hedge/env.sh` to your shell rc (`~/.bashrc` or `~/.zshrc`) to make it permanent.
 
 ### OpenCode
 
@@ -120,15 +119,22 @@ hcli setup opencode
 source ~/.hedge/opencode-env.sh
 ```
 
-This adds the `@devtheops/opencode-plugin-otel` plugin to your OpenCode config and writes the required environment variables.
+Adds the `@devtheops/opencode-plugin-otel` plugin to your OpenCode config and writes its env vars. Source the file in the shell you run `opencode` from.
 
 ### Per-project attribution (optional)
 
-To attribute sessions to specific projects, use a shell function:
+The agents don't report which directory you're working in, so by default all
+sessions land under `(ungrouped)` in the Projects view. To group by project, wrap
+your agent so each run tags its working directory. Add to your shell rc
+(`~/.bashrc` or `~/.zshrc`):
 
 ```sh
-claude() { OTEL_RESOURCE_ATTRIBUTES="hcli.project_path=$PWD" command claude "$@"; }
+claude()   { OTEL_RESOURCE_ATTRIBUTES="hcli.project_path=$PWD" command claude "$@"; }
+opencode() { OPENCODE_RESOURCE_ATTRIBUTES="hcli.project_path=$PWD" command opencode "$@"; }
 ```
+
+Each wrapper runs the real binary (via `command`) but sets `hcli.project_path` to
+your current directory, so hcli groups sessions by repo.
 
 ## Usage
 
@@ -203,7 +209,7 @@ Agent (Claude Code / OpenCode)
 Single Go binary, no CGO, pure-Go SQLite via modernc.org/sqlite.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for component details and the
-non-obvious bits — especially how cost is attributed and derived.
+non-obvious bits, especially how cost is attributed and derived.
 
 ## Local-Only Guarantee
 
@@ -221,10 +227,10 @@ Local data lives in `~/.hedge/` and is stored owner-only: the directory is creat
 
 ### OpenCode: no telemetry appearing
 
-- The telemetry env vars must be set **in the shell that launches `opencode`** —
-  `source ~/.hedge/opencode-env.sh` in that shell (or add it to your shell rc).
-  If `OPENCODE_ENABLE_TELEMETRY` is unset, the plugin stays disabled and sends
-  nothing.
+- The telemetry env vars must be set **in the shell that launches `opencode`**.
+  Run `source ~/.hedge/opencode-env.sh` in that shell (or add it to your shell
+  rc). If `OPENCODE_ENABLE_TELEMETRY` is unset, the plugin stays disabled and
+  sends nothing.
 - Verify the `@devtheops/opencode-plugin-otel` plugin is in your `opencode.json`.
 - Let the session finish normally. The plugin batches telemetry and flushes it
   on a timer / on exit; a very short `opencode run` that exits instantly can race
