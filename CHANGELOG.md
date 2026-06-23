@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-06-22
+
+### Fixed
+- Overview cost/token cards were labeled "Today Cost"/"Today Tokens" but show
+  totals for the selected date range; relabeled to "Cost"/"Tokens".
+- Projects "Last Active" was always blank — `MAX(started_at)` is returned by the
+  SQLite driver as a Go `time.String()` value (with a monotonic-clock suffix)
+  that RFC3339 parsing rejected. Now parsed correctly.
+
+### Added
+- README screenshots: a demo GIF plus Overview/Cost/Tools/Models/Projects stills.
+
 ## [0.1.0] - 2026-06-22
 
 First public release.
@@ -40,5 +52,6 @@ First public release.
 - `hcli query` runs on a read-only (`query_only`) database connection.
 - `golang.org/x/net` at `v0.51.0` (resolves `GO-2026-4559`).
 
-[Unreleased]: https://github.com/justinmaks/hedge-local/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/justinmaks/hedge-local/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/justinmaks/hedge-local/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/justinmaks/hedge-local/releases/tag/v0.1.0
