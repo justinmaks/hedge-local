@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - README screenshots: a demo GIF plus Overview/Cost/Tools/Models/Projects stills.
 
+### Security
+- Upgraded the transitive `google.golang.org/grpc` to v1.81.1 to clear a critical
+  advisory (gRPC-Go authorization bypass). hcli is HTTP-only and does not run a
+  gRPC server, so it was not reachable (govulncheck confirms), but the dependency
+  is updated regardless.
+
 ## [0.1.0] - 2026-06-22
 
 First public release.
