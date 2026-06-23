@@ -123,18 +123,8 @@ Adds the `@devtheops/opencode-plugin-otel` plugin to your OpenCode config and wr
 
 ### Per-project attribution (optional)
 
-The agents don't report which directory you're working in, so by default all
-sessions land under `(ungrouped)` in the Projects view. To group by project, wrap
-your agent so each run tags its working directory. Add to your shell rc
-(`~/.bashrc` or `~/.zshrc`):
-
-```sh
-claude()   { OTEL_RESOURCE_ATTRIBUTES="hcli.project_path=$PWD" command claude "$@"; }
-opencode() { OPENCODE_RESOURCE_ATTRIBUTES="hcli.project_path=$PWD" command opencode "$@"; }
-```
-
-Each wrapper runs the real binary (via `command`) but sets `hcli.project_path` to
-your current directory, so hcli groups sessions by repo.
+By default all sessions land under `(ungrouped)` in the Projects view. To group
+sessions by repo, see [Per-project attribution](docs/advanced.md#per-project-attribution).
 
 ## Usage
 
@@ -169,9 +159,8 @@ Flags: `--range` (today, 7d, 30d, custom:YYYY-MM-DD:YYYY-MM-DD), `--format` (csv
 
 ### SQL query (power users)
 
-```sh
-hcli query "SELECT agent, SUM(total_cost_usd) FROM sessions GROUP BY agent"
-```
+Run read-only SQL against the local database with `hcli query`. See
+[SQL query](docs/advanced.md#sql-query-power-users).
 
 ### Pricing management
 
