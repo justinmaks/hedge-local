@@ -8,6 +8,8 @@
 
 hcli collects OpenTelemetry (OTEL) telemetry from coding agents (Claude Code, OpenCode) into a local SQLite database and visualizes cost, tokens, tool usage, and latency in a terminal UI. Single Go binary, no cloud, no account, no telemetry home.
 
+![hcli TUI demo](docs/screenshots/demo.gif)
+
 ## Quickstart
 
 ```sh
@@ -26,6 +28,22 @@ Start using Claude Code — telemetry appears in the TUI within 60 seconds.
 - **Visualizes** cost, tokens, tools, models, projects, and live activity in a 7-view TUI
 - **Exports** data as CSV, JSON, or Markdown
 - **Local-only** — no usage data leaves your machine
+
+## Screenshots
+
+> Sample data shown.
+
+| Overview | Cost |
+|----------|------|
+| ![Overview](docs/screenshots/01-overview.png) | ![Cost](docs/screenshots/02-cost.png) |
+
+| Tools | Models |
+|-------|--------|
+| ![Tools](docs/screenshots/03-tools.png) | ![Models](docs/screenshots/04-models.png) |
+
+| Projects |
+|----------|
+| ![Projects](docs/screenshots/05-projects.png) |
 
 ## Install
 
