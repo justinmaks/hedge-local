@@ -121,6 +121,30 @@ func TestCostView_cursorBounds(t *testing.T) {
 	}
 }
 
+func TestCostView_hourlyLoadMsg_updatesHourlyData(t *testing.T) {
+	v := &CostView{
+		mode:     costModeHourly,
+		drillDay: time.Date(2026, 7, 7, 0, 0, 0, 0, time.Local),
+	}
+	msg := costHourlyLoadedMsg{
+		result: costHourlyResult{
+			points: []queries.CostPoint{
+				{Timestamp: time.Date(2026, 7, 7, 9, 0, 0, 0, time.Local), Cost: 1.20},
+				{Timestamp: time.Date(2026, 7, 7, 10, 0, 0, 0, time.Local), Cost: 2.00},
+			},
+		},
+	}
+	ctx := tui.ViewContext{}
+	updated, _ := v.Update(msg, ctx)
+	cv := updated.(*CostView)
+	if len(cv.hourly) != 2 {
+		t.Errorf("expected 2 hourly points, got %d", len(cv.hourly))
+	}
+	if cv.hourly[1].Cost != 2.00 {
+		t.Errorf("expected $2.00 at 10:00, got $%.2f", cv.hourly[1].Cost)
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsStr(s, substr))
 }

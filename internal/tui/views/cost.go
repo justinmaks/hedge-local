@@ -84,7 +84,16 @@ type costHourlyResult struct {
 }
 
 func (v *CostView) loadHourly(ctx tui.ViewContext) tea.Cmd {
-	return nil // implemented in Task 3
+	if v.service == nil {
+		return nil
+	}
+	day := v.drillDay
+	from := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
+	to := from.Add(24 * time.Hour)
+	return func() tea.Msg {
+		points, err := v.service.CostTrend(from, to, "hourly")
+		return costHourlyLoadedMsg{result: costHourlyResult{points: points, err: err}}
+	}
 }
 
 func (v *CostView) Update(msg tea.Msg, ctx tui.ViewContext) (tui.View, tea.Cmd) {
