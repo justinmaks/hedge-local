@@ -74,6 +74,19 @@ func loadCost(service *queries.Service, dim int, from, to time.Time) costResult 
 	return r
 }
 
+type costHourlyLoadedMsg struct {
+	result costHourlyResult
+}
+
+type costHourlyResult struct {
+	points []queries.CostPoint
+	err    error
+}
+
+func (v *CostView) loadHourly(ctx tui.ViewContext) tea.Cmd {
+	return nil // implemented in Task 3
+}
+
 func (v *CostView) Update(msg tea.Msg, ctx tui.ViewContext) (tui.View, tea.Cmd) {
 	switch m := msg.(type) {
 	case costLoadedMsg:
@@ -82,32 +95,54 @@ func (v *CostView) Update(msg tea.Msg, ctx tui.ViewContext) (tui.View, tea.Cmd) 
 		v.err = m.result.err
 		return v, nil
 	case tea.KeyMsg:
-		switch m.String() {
-		case "left":
-			if v.dimension > 0 {
-				v.dimension--
-				return v, v.Reload(ctx)
-			}
-		case "right":
-			if v.dimension < len(dimNames)-1 {
-				v.dimension++
-				return v, v.Reload(ctx)
-			}
-		case "enter", "\r":
-			if v.mode == costModeDaily && len(v.trend) > 0 && v.cursor < len(v.trend) {
-				v.drillDay = v.trend[v.cursor].Timestamp
-				v.mode = costModeHourly
-				v.cursor = 0
-				return v, v.Reload(ctx)
-			}
-		case "esc", "\x1b":
-			if v.mode == costModeHourly {
-				v.mode = costModeDaily
-				v.cursor = 0
-				v.hourly = nil
-				return v, v.Reload(ctx)
-			}
+		switch v.mode {
+		case costModeDaily:
+			return v.updateDaily(m, ctx)
+		case costModeHourly:
+			return v.updateHourly(m, ctx)
 		}
+	}
+	return v, nil
+}
+
+func (v *CostView) updateDaily(m tea.KeyMsg, ctx tui.ViewContext) (tui.View, tea.Cmd) {
+	switch m.String() {
+	case "left":
+		if v.dimension > 0 {
+			v.dimension--
+			return v, v.Reload(ctx)
+		}
+	case "right":
+		if v.dimension < len(dimNames)-1 {
+			v.dimension++
+			return v, v.Reload(ctx)
+		}
+	case "up", "k":
+		if v.cursor > 0 {
+			v.cursor--
+		}
+	case "down", "j":
+		if v.cursor < len(v.trend)-1 {
+			v.cursor++
+		}
+	case "enter", "\r":
+		if len(v.trend) > 0 && v.cursor < len(v.trend) {
+			v.drillDay = v.trend[v.cursor].Timestamp
+			v.mode = costModeHourly
+			v.cursor = 0
+			return v, v.loadHourly(ctx)
+		}
+	}
+	return v, nil
+}
+
+func (v *CostView) updateHourly(m tea.KeyMsg, ctx tui.ViewContext) (tui.View, tea.Cmd) {
+	switch m.String() {
+	case "esc", "\x1b":
+		v.mode = costModeDaily
+		v.hourly = nil
+		v.cursor = 0
+		return v, nil
 	}
 	return v, nil
 }
@@ -120,22 +155,46 @@ func (v *CostView) Render(width, height int, theme *tui.Theme) string {
 	dimLabel := fmt.Sprintf("Dimension: %s (←/→ to switch)", dimNames[v.dimension])
 	header := theme.Header.Render(dimLabel)
 
+	switch v.mode {
+	case costModeDaily:
+		return header + "\n\n" + v.renderDailyBars(width, theme)
+	case costModeHourly:
+		return header + "\n\n" + v.renderHourlyBars(width, theme)
+	}
+	return header
+}
+
+func (v *CostView) renderDailyBars(width int, theme *tui.Theme) string {
 	var lines []string
-	lines = append(lines, theme.CardTitle.Render("Daily Cost"))
+	lines = append(lines, theme.CardTitle.Render("Daily Cost (Enter to drill down)"))
+
+	if len(v.trend) == 0 {
+		lines = append(lines, theme.Dim.Render("  No data for this period"))
+		return strings.Join(lines, "\n")
+	}
+
 	maxCost := 0.0
 	for _, p := range v.trend {
 		if p.Cost > maxCost {
 			maxCost = p.Cost
 		}
 	}
-	for _, p := range v.trend {
-		barWidth := 30
+
+	barWidth := 30
+	for i, p := range v.trend {
 		pct := 0.0
 		if maxCost > 0 {
 			pct = p.Cost / maxCost * 100
 		}
-		lines = append(lines, fmt.Sprintf("%s %s $%.2f",
-			p.Timestamp.Format("01-02"), tui.Bar(barWidth, pct), p.Cost))
+		dateStr := p.Timestamp.Format("01-02")
+		costStr := fmt.Sprintf("$%.2f", p.Cost)
+		bar := tui.Bar(barWidth, pct)
+
+		if i == v.cursor {
+			lines = append(lines, theme.Selected.Render("▸ "+dateStr+"  "+bar+"  "+costStr))
+		} else {
+			lines = append(lines, "  "+dateStr+"  "+bar+"  "+costStr)
+		}
 	}
 
 	lines = append(lines, "")
@@ -146,5 +205,44 @@ func (v *CostView) Render(width, height int, theme *tui.Theme) string {
 			truncate(b.Name, 15), b.Cost, b.Pct, b.Sessions, b.Tokens))
 	}
 
-	return header + "\n\n" + strings.Join(lines, "\n")
+	return strings.Join(lines, "\n")
+}
+
+func (v *CostView) renderHourlyBars(width int, theme *tui.Theme) string {
+	var lines []string
+	title := fmt.Sprintf("Hourly Cost for %s (Esc to go back)", v.drillDay.Format("2006-01-02"))
+	lines = append(lines, theme.CardTitle.Render(title))
+
+	if len(v.hourly) == 0 {
+		lines = append(lines, theme.Dim.Render("  No hourly data for this day"))
+		return strings.Join(lines, "\n")
+	}
+
+	maxCost := 0.0
+	for _, p := range v.hourly {
+		if p.Cost > maxCost {
+			maxCost = p.Cost
+		}
+	}
+
+	barWidth := 30
+	for _, p := range v.hourly {
+		pct := 0.0
+		if maxCost > 0 {
+			pct = p.Cost / maxCost * 100
+		}
+		hourStr := p.Timestamp.Format("15:04")
+		costStr := fmt.Sprintf("$%.2f", p.Cost)
+		bar := tui.Bar(barWidth, pct)
+		lines = append(lines, fmt.Sprintf("  %s  %s  %7s", hourStr, bar, costStr))
+	}
+
+	total := 0.0
+	for _, p := range v.hourly {
+		total += p.Cost
+	}
+	lines = append(lines, "")
+	lines = append(lines, fmt.Sprintf("  Day total: $%.2f (%d hours)", total, len(v.hourly)))
+
+	return strings.Join(lines, "\n")
 }
