@@ -79,6 +79,48 @@ func TestCostView_escReturnsToDaily(t *testing.T) {
 	}
 }
 
+func TestCostView_cursorMovesUpDown(t *testing.T) {
+	v := &CostView{
+		mode: costModeDaily,
+		trend: []queries.CostPoint{
+			{Timestamp: time.Date(2026, 7, 6, 0, 0, 0, 0, time.Local), Cost: 1.50},
+			{Timestamp: time.Date(2026, 7, 7, 0, 0, 0, 0, time.Local), Cost: 3.20},
+			{Timestamp: time.Date(2026, 7, 8, 0, 0, 0, 0, time.Local), Cost: 0.75},
+		},
+		cursor: 0,
+	}
+	ctx := tui.ViewContext{}
+
+	updated, _ := v.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}, ctx)
+	cv := updated.(*CostView)
+	if cv.cursor != 1 {
+		t.Errorf("expected cursor 1 after down, got %d", cv.cursor)
+	}
+
+	updated, _ = cv.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}}, ctx)
+	cv = updated.(*CostView)
+	if cv.cursor != 0 {
+		t.Errorf("expected cursor 0 after up, got %d", cv.cursor)
+	}
+}
+
+func TestCostView_cursorBounds(t *testing.T) {
+	v := &CostView{
+		mode: costModeDaily,
+		trend: []queries.CostPoint{
+			{Timestamp: time.Date(2026, 7, 6, 0, 0, 0, 0, time.Local), Cost: 1.50},
+		},
+		cursor: 0,
+	}
+	ctx := tui.ViewContext{}
+
+	updated, _ := v.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}}, ctx)
+	cv := updated.(*CostView)
+	if cv.cursor != 0 {
+		t.Errorf("expected cursor 0 (clamped), got %d", cv.cursor)
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsStr(s, substr))
 }
