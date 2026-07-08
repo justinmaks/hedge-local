@@ -318,6 +318,11 @@ Table views:
   Enter      Focused detail
   Esc        Return to table
 
+Cost view:
+  ↑↓         Select day
+  Enter      Drill into hourly
+  Esc        Back to daily
+
 Live view:
   p          Pause
   c          Clear
@@ -326,6 +331,9 @@ Live view:
 Export view:
   p          Preview
   x          Execute export
+
+CLI commands:
+  hcli uninstall   Remove all hcli data
 `
 	return a.theme.Popup.Render(help)
 }
