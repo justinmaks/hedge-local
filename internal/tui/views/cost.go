@@ -198,7 +198,13 @@ func (v *CostView) renderDailyBars(width int, theme *tui.Theme) string {
 		}
 	}
 
-	barWidth := 30
+	barWidth := width - 25
+	if barWidth < 10 {
+		barWidth = 10
+	}
+	if barWidth > 60 {
+		barWidth = 60
+	}
 	for i, p := range v.trend {
 		pct := 0.0
 		if maxCost > 0 {
@@ -243,7 +249,13 @@ func (v *CostView) renderHourlyBars(width int, theme *tui.Theme) string {
 		}
 	}
 
-	barWidth := 30
+	barWidth := width - 25
+	if barWidth < 10 {
+		barWidth = 10
+	}
+	if barWidth > 60 {
+		barWidth = 60
+	}
 	for _, p := range v.hourly {
 		pct := 0.0
 		if maxCost > 0 {
