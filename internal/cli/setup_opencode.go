@@ -75,6 +75,9 @@ func configureOpenCode(configPath, envPath string) error {
 		return fmt.Errorf("write opencode config: %w", err)
 	}
 
+	if err := backupIfExists(envPath); err != nil {
+		return fmt.Errorf("backup opencode env: %w", err)
+	}
 	env := `# hcli telemetry environment for OpenCode
 # Source this from your shell rc (~/.bashrc, ~/.zshrc):
 #   source ~/.hedge/opencode-env.sh

@@ -7,6 +7,37 @@ import (
 	"testing"
 )
 
+func TestConfigureOpenCode_backsUpExistingEnv(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "opencode.json")
+	envPath := filepath.Join(dir, "opencode-env.sh")
+
+	original := "# my custom env\nexport MY_VAR=hello\n"
+	if err := os.WriteFile(envPath, []byte(original), 0644); err != nil {
+		t.Fatalf("write original: %v", err)
+	}
+
+	if err := configureOpenCode(configPath, envPath); err != nil {
+		t.Fatalf("configureOpenCode: %v", err)
+	}
+
+	backupData, err := os.ReadFile(envPath + ".backup")
+	if err != nil {
+		t.Fatalf("read backup: %v", err)
+	}
+	if string(backupData) != original {
+		t.Fatalf("backup mismatch: got %q", string(backupData))
+	}
+
+	mainData, err := os.ReadFile(envPath)
+	if err != nil {
+		t.Fatalf("read env: %v", err)
+	}
+	if !strings.Contains(string(mainData), "OPENCODE_ENABLE_TELEMETRY") {
+		t.Fatalf("env should contain telemetry: %s", string(mainData))
+	}
+}
+
 func TestConfigureOpenCodeCreatesConfigAndEnv(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "opencode.json")
