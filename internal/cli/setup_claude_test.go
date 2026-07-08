@@ -10,6 +10,60 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func TestSetupClaude_backsUpExistingEnvSh(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	envDir := filepath.Join(home, ".hedge")
+	if err := os.MkdirAll(envDir, 0700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	original := "# my custom env\nexport FOO=bar\n"
+	if err := os.WriteFile(filepath.Join(envDir, "env.sh"), []byte(original), 0644); err != nil {
+		t.Fatalf("write original: %v", err)
+	}
+
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	if err := runSetupClaude(cmd, nil); err != nil {
+		t.Fatalf("runSetupClaude: %v", err)
+	}
+
+	backupData, err := os.ReadFile(filepath.Join(envDir, "env.sh.backup"))
+	if err != nil {
+		t.Fatalf("read backup: %v", err)
+	}
+	if string(backupData) != original {
+		t.Fatalf("backup content mismatch: got %q", string(backupData))
+	}
+
+	mainData, err := os.ReadFile(filepath.Join(envDir, "env.sh"))
+	if err != nil {
+		t.Fatalf("read env.sh: %v", err)
+	}
+	if !strings.Contains(string(mainData), "CLAUDE_CODE_ENABLE_TELEMETRY") {
+		t.Fatalf("env.sh should contain telemetry vars: %s", string(mainData))
+	}
+}
+
+func TestSetupClaude_noBackupWhenFresh(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	if err := runSetupClaude(cmd, nil); err != nil {
+		t.Fatalf("runSetupClaude: %v", err)
+	}
+
+	backupPath := filepath.Join(home, ".hedge", "env.sh.backup")
+	if _, err := os.Stat(backupPath); err == nil {
+		t.Fatal("backup should not exist when no prior file")
+	}
+}
+
 func TestSetupClaudeWritesTelemetryEnv(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

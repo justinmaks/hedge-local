@@ -25,6 +25,18 @@ func init() {
 	rootCmd.AddCommand(setupCmd)
 }
 
+func backupIfExists(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	backupPath := path + ".backup"
+	return os.WriteFile(backupPath, data, 0644)
+}
+
 func runSetupClaude(cmd *cobra.Command, args []string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -36,6 +48,9 @@ func runSetupClaude(cmd *cobra.Command, args []string) error {
 	}
 
 	envPath := filepath.Join(hedgeDir, "env.sh")
+	if err := backupIfExists(envPath); err != nil {
+		return fmt.Errorf("backup env.sh: %w", err)
+	}
 	content := `# hcli telemetry environment for Claude Code
 # Source this from your shell rc (~/.bashrc, ~/.zshrc):
 #   source ~/.hedge/env.sh
