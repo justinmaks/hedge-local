@@ -11,16 +11,27 @@ import (
 	"github.com/justinmaks/hedge-local/internal/tui/queries"
 )
 
+type costMode int
+
+const (
+	costModeDaily costMode = iota
+	costModeHourly
+)
+
 type CostView struct {
 	service   *queries.Service
 	dimension int // 0=agent, 1=project, 2=model
 	breakdown []queries.CostBreakdown
 	trend     []queries.CostPoint
+	hourly    []queries.CostPoint
 	err       error
+	mode      costMode
+	cursor    int
+	drillDay  time.Time
 }
 
 func NewCostView(service *queries.Service) *CostView {
-	return &CostView{service: service}
+	return &CostView{service: service, mode: costModeDaily}
 }
 
 func (v *CostView) Title() string { return "Cost" }
@@ -80,6 +91,20 @@ func (v *CostView) Update(msg tea.Msg, ctx tui.ViewContext) (tui.View, tea.Cmd) 
 		case "right":
 			if v.dimension < len(dimNames)-1 {
 				v.dimension++
+				return v, v.Reload(ctx)
+			}
+		case "enter", "\r":
+			if v.mode == costModeDaily && len(v.trend) > 0 && v.cursor < len(v.trend) {
+				v.drillDay = v.trend[v.cursor].Timestamp
+				v.mode = costModeHourly
+				v.cursor = 0
+				return v, v.Reload(ctx)
+			}
+		case "esc", "\x1b":
+			if v.mode == costModeHourly {
+				v.mode = costModeDaily
+				v.cursor = 0
+				v.hourly = nil
 				return v, v.Reload(ctx)
 			}
 		}
