@@ -116,12 +116,19 @@ func (v *ModelsView) Render(width, height int, theme *tui.Theme) string {
 			maxCost = ms.Cost
 		}
 	}
+	modelBarWidth := width - 30
+	if modelBarWidth < 10 {
+		modelBarWidth = 10
+	}
+	if modelBarWidth > 60 {
+		modelBarWidth = 60
+	}
 	for _, ms := range stats {
 		pct := 0.0
 		if maxCost > 0 {
 			pct = ms.Cost / maxCost * 100
 		}
-		bars = append(bars, fmt.Sprintf("%-20s %s $%.2f", truncate(ms.Model, 20), tui.Bar(20, pct), ms.Cost))
+		bars = append(bars, fmt.Sprintf("%-20s %s $%.2f", truncate(ms.Model, 20), tui.Bar(modelBarWidth, pct), ms.Cost))
 	}
 	barsSection := strings.Join(bars, "\n")
 

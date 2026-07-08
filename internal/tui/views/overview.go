@@ -109,13 +109,19 @@ func (v *OverviewView) Render(width, height int, theme *tui.Theme) string {
 			maxAgentCost = ab.Cost
 		}
 	}
+	agentBarWidth := width - 25
+	if agentBarWidth < 10 {
+		agentBarWidth = 10
+	}
+	if agentBarWidth > 60 {
+		agentBarWidth = 60
+	}
 	for _, ab := range v.stats.ByAgent {
-		barWidth := 20
 		pct := 0.0
 		if maxAgentCost > 0 {
 			pct = ab.Cost / maxAgentCost * 100
 		}
-		agentLines = append(agentLines, fmt.Sprintf("%-15s %s $%.2f", ab.Agent, tui.Bar(barWidth, pct), ab.Cost))
+		agentLines = append(agentLines, fmt.Sprintf("%-15s %s $%.2f", ab.Agent, tui.Bar(agentBarWidth, pct), ab.Cost))
 	}
 	agentSection := strings.Join(agentLines, "\n")
 
