@@ -10,6 +10,20 @@ import (
 	"github.com/justinmaks/hedge-local/internal/tui/queries"
 )
 
+func TestCostView_hintsChangeByMode(t *testing.T) {
+	v := &CostView{mode: costModeDaily}
+	hints := v.Hints()
+	if !containsStr(hints, "Enter") {
+		t.Errorf("daily hints should mention Enter: %s", hints)
+	}
+
+	v.mode = costModeHourly
+	hints = v.Hints()
+	if !containsStr(hints, "esc") {
+		t.Errorf("hourly hints should mention Esc: %s", hints)
+	}
+}
+
 func TestCostView_startsInDailyMode(t *testing.T) {
 	v := NewCostView(nil)
 	if v.mode != costModeDaily {

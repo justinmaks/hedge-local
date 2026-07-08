@@ -45,7 +45,12 @@ func (v *CostView) Reload(ctx tui.ViewContext) tea.Cmd {
 }
 
 func (v *CostView) Hints() string {
-	return "←/→ dimension  r refresh  e date"
+	switch v.mode {
+	case costModeHourly:
+		return "esc back  ↑↓ scroll"
+	default:
+		return "←/→ dimension  ↑↓ select  Enter drill-down  r refresh  e date"
+	}
 }
 
 type costLoadedMsg struct {
