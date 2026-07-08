@@ -94,6 +94,10 @@ func (v *CostView) Update(msg tea.Msg, ctx tui.ViewContext) (tui.View, tea.Cmd) 
 		v.trend = m.result.trend
 		v.err = m.result.err
 		return v, nil
+	case costHourlyLoadedMsg:
+		v.hourly = m.result.points
+		v.err = m.result.err
+		return v, nil
 	case tea.KeyMsg:
 		switch v.mode {
 		case costModeDaily:
