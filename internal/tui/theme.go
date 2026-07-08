@@ -76,22 +76,59 @@ func NewTheme() *Theme {
 
 var blockChars = []string{"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"}
 
-func Sparkline(values []float64, maxVal float64) string {
+func Sparkline(values []float64, maxVal float64, width int) string {
 	if maxVal <= 0 {
 		maxVal = 1
 	}
-	var s string
-	for _, v := range values {
-		idx := int(v / maxVal * float64(len(blockChars)-1))
+	if len(values) == 0 {
+		return strings.Repeat(" ", width)
+	}
+
+	if len(values) <= width {
+		var s strings.Builder
+		for _, v := range values {
+			idx := int(v / maxVal * float64(len(blockChars)-1))
+			if idx < 0 {
+				idx = 0
+			}
+			if idx >= len(blockChars) {
+				idx = len(blockChars) - 1
+			}
+			s.WriteString(blockChars[idx])
+		}
+		remaining := width - len(values)
+		if remaining > 0 {
+			s.WriteString(strings.Repeat(" ", remaining))
+		}
+		return s.String()
+	}
+
+	// More values than width: aggregate into buckets
+	var s strings.Builder
+	bucketSize := float64(len(values)) / float64(width)
+	for i := 0; i < width; i++ {
+		start := int(float64(i) * bucketSize)
+		end := int(float64(i+1) * bucketSize)
+		if end > len(values) {
+			end = len(values)
+		}
+		avg := 0.0
+		for _, v := range values[start:end] {
+			avg += v
+		}
+		if end > start {
+			avg /= float64(end - start)
+		}
+		idx := int(avg / maxVal * float64(len(blockChars)-1))
 		if idx < 0 {
 			idx = 0
 		}
 		if idx >= len(blockChars) {
 			idx = len(blockChars) - 1
 		}
-		s += blockChars[idx]
+		s.WriteString(blockChars[idx])
 	}
-	return s
+	return s.String()
 }
 
 func Bar(width int, pct float64) string {

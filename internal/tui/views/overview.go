@@ -94,7 +94,11 @@ func (v *OverviewView) Render(width, height int, theme *tui.Theme) string {
 	for _, p := range v.trend {
 		sparkValues = append(sparkValues, p.Cost)
 	}
-	sparkline := tui.Sparkline(sparkValues, maxFloat(sparkValues))
+	sparkWidth := width - 4
+	if sparkWidth < 20 {
+		sparkWidth = 20
+	}
+	sparkline := tui.Sparkline(sparkValues, maxFloat(sparkValues), sparkWidth)
 	sparkSection := theme.CardTitle.Render("7-day Cost Trend") + "\n" + sparkline
 
 	var agentLines []string
