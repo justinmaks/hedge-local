@@ -113,7 +113,6 @@ func parseNumericCell(value string) (float64, bool) {
 }
 
 func (t *Table) Render(width, height int, theme *Theme) string {
-	_ = width
 	if len(t.Rows) == 0 {
 		return theme.Dim.Render("No data")
 	}
@@ -135,6 +134,8 @@ func (t *Table) Render(width, height int, theme *Theme) string {
 		end = len(t.Rows)
 	}
 
+	colWidths := t.distributeWidths(width)
+
 	var headers []string
 	for i, col := range t.Columns {
 		title := col.Title
@@ -145,7 +146,7 @@ func (t *Table) Render(width, height int, theme *Theme) string {
 				title += " ↑"
 			}
 		}
-		headers = append(headers, theme.TableHeader.Render(padOrTruncate(title, col.Width)))
+		headers = append(headers, theme.TableHeader.Render(padOrTruncate(title, colWidths[i])))
 	}
 	headerLine := strings.Join(headers, " ")
 
@@ -153,7 +154,7 @@ func (t *Table) Render(width, height int, theme *Theme) string {
 	lines = append(lines, headerLine)
 	for idx := t.scroll; idx < end; idx++ {
 		var cells []string
-		for i, col := range t.Columns {
+		for i := range t.Columns {
 			val := ""
 			if i < len(t.Rows[idx]) {
 				val = t.Rows[idx][i]
@@ -165,12 +166,46 @@ func (t *Table) Render(width, height int, theme *Theme) string {
 			if idx == t.cursor {
 				style = theme.Selected
 			}
-			cells = append(cells, style.Render(padOrTruncate(val, col.Width)))
+			cells = append(cells, style.Render(padOrTruncate(val, colWidths[i])))
 		}
 		lines = append(lines, strings.Join(cells, " "))
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func (t *Table) distributeWidths(totalWidth int) []int {
+	if len(t.Columns) == 0 {
+		return nil
+	}
+
+	widths := make([]int, len(t.Columns))
+	fixedTotal := 0
+	for i, col := range t.Columns {
+		widths[i] = col.Width
+		fixedTotal += col.Width
+	}
+
+	spacing := len(t.Columns) - 1
+	if spacing < 0 {
+		spacing = 0
+	}
+
+	extra := totalWidth - fixedTotal - spacing
+	if extra <= 0 {
+		return widths
+	}
+
+	extraPerCol := extra / len(t.Columns)
+	remainder := extra % len(t.Columns)
+	for i := range widths {
+		widths[i] += extraPerCol
+		if i < remainder {
+			widths[i]++
+		}
+	}
+
+	return widths
 }
 
 func padOrTruncate(s string, width int) string {
