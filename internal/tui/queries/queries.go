@@ -173,7 +173,7 @@ func (s *Service) CostByDimension(from, to time.Time, dim string) ([]CostBreakdo
 	case "agent":
 		fallthrough
 	default:
-		groupCol = "agent"
+		groupCol = "s.agent"
 	}
 
 	var totalCost float64
@@ -182,6 +182,9 @@ func (s *Service) CostByDimension(from, to time.Time, dim string) ([]CostBreakdo
 		from, to,
 	).Scan(&totalCost)
 
+	// GROUP BY must repeat the qualified column: a bare "name" would
+	// resolve to the joined projects.name column, not the output alias,
+	// silently splitting agent rows per project.
 	query := fmt.Sprintf(
 		`SELECT %s as name, COALESCE(SUM(s.total_cost_usd), 0) as cost,
 		 COUNT(DISTINCT s.id) as sessions,
@@ -189,8 +192,8 @@ func (s *Service) CostByDimension(from, to time.Time, dim string) ([]CostBreakdo
 		 FROM sessions s
 		 LEFT JOIN projects p ON s.project_id = p.id
 		 WHERE s.started_at BETWEEN ? AND ?
-		 GROUP BY name ORDER BY cost DESC`,
-		groupCol,
+		 GROUP BY %s ORDER BY cost DESC`,
+		groupCol, groupCol,
 	)
 	rows, err := db.Query(query, from, to)
 	if err != nil {
