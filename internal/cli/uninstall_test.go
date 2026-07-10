@@ -54,6 +54,74 @@ func TestUninstall_removesHedgeDir(t *testing.T) {
 	}
 }
 
+func TestUninstall_promptDeclinedKeepsDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	oldYes := uninstallYes
+	oldDryRun := uninstallDryRun
+	uninstallYes = false
+	uninstallDryRun = false
+	t.Cleanup(func() {
+		uninstallYes = oldYes
+		uninstallDryRun = oldDryRun
+	})
+
+	hedgeDir := filepath.Join(home, ".hedge")
+	if err := os.MkdirAll(hedgeDir, 0700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(hedgeDir, "hedge.db"), []byte("fake"), 0600); err != nil {
+		t.Fatalf("write db: %v", err)
+	}
+
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	cmd.SetIn(strings.NewReader("n\n"))
+	if err := runUninstall(cmd, nil); err != nil {
+		t.Fatalf("uninstall: %v", err)
+	}
+
+	if _, err := os.Stat(hedgeDir); err != nil {
+		t.Fatalf("~/.hedge should still exist after declined prompt: %v", err)
+	}
+	if !strings.Contains(out.String(), "Aborted") {
+		t.Errorf("should print Aborted:\n%s", out.String())
+	}
+}
+
+func TestUninstall_promptAcceptedRemovesDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	oldYes := uninstallYes
+	oldDryRun := uninstallDryRun
+	uninstallYes = false
+	uninstallDryRun = false
+	t.Cleanup(func() {
+		uninstallYes = oldYes
+		uninstallDryRun = oldDryRun
+	})
+
+	hedgeDir := filepath.Join(home, ".hedge")
+	if err := os.MkdirAll(hedgeDir, 0700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	cmd.SetIn(strings.NewReader("y\n"))
+	if err := runUninstall(cmd, nil); err != nil {
+		t.Fatalf("uninstall: %v", err)
+	}
+
+	if _, err := os.Stat(hedgeDir); !os.IsNotExist(err) {
+		t.Fatalf("~/.hedge should be removed after accepted prompt, got: %v", err)
+	}
+}
+
 func TestUninstall_noopWhenNoDir(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

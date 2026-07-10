@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -60,6 +62,18 @@ func runUninstall(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(out)
 		printManualCleanup(out)
 		return nil
+	}
+
+	if !uninstallYes {
+		fmt.Fprintf(out, "This will permanently delete %s/ (database, config, env files, logs).\n", hedgeDir)
+		fmt.Fprint(out, "Continue? [y/N]: ")
+		reader := bufio.NewReader(cmd.InOrStdin())
+		line, _ := reader.ReadString('\n')
+		answer := strings.ToLower(strings.TrimSpace(line))
+		if answer != "y" && answer != "yes" {
+			fmt.Fprintln(out, "Aborted.")
+			return nil
+		}
 	}
 
 	if err := os.RemoveAll(hedgeDir); err != nil {

@@ -75,9 +75,6 @@ func configureOpenCode(configPath, envPath string) error {
 		return fmt.Errorf("write opencode config: %w", err)
 	}
 
-	if err := backupIfExists(envPath); err != nil {
-		return fmt.Errorf("backup opencode env: %w", err)
-	}
 	env := `# hcli telemetry environment for OpenCode
 # Source this from your shell rc (~/.bashrc, ~/.zshrc):
 #   source ~/.hedge/opencode-env.sh
@@ -89,6 +86,9 @@ export OPENCODE_OTLP_PROTOCOL=http/protobuf
 # For per-project attribution, uncomment and use as a shell function:
 # opencode() { OPENCODE_RESOURCE_ATTRIBUTES="hcli.project_path=$PWD" command opencode "$@"; }
 `
+	if err := backupIfExists(envPath, []byte(env)); err != nil {
+		return fmt.Errorf("backup opencode env: %w", err)
+	}
 	if err := os.WriteFile(envPath, []byte(env), 0644); err != nil {
 		return fmt.Errorf("write opencode env: %w", err)
 	}

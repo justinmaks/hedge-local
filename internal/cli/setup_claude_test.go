@@ -47,6 +47,40 @@ func TestSetupClaude_backsUpExistingEnvSh(t *testing.T) {
 	}
 }
 
+func TestSetupClaude_rerunKeepsOriginalBackup(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	envDir := filepath.Join(home, ".hedge")
+	if err := os.MkdirAll(envDir, 0700); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	original := "# my custom env\nexport FOO=bar\n"
+	if err := os.WriteFile(filepath.Join(envDir, "env.sh"), []byte(original), 0644); err != nil {
+		t.Fatalf("write original: %v", err)
+	}
+
+	var out bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&out)
+	// Run setup twice: the second run must not clobber the backup of the
+	// user's original file with hcli's own generated content.
+	if err := runSetupClaude(cmd, nil); err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+	if err := runSetupClaude(cmd, nil); err != nil {
+		t.Fatalf("second run: %v", err)
+	}
+
+	backupData, err := os.ReadFile(filepath.Join(envDir, "env.sh.backup"))
+	if err != nil {
+		t.Fatalf("read backup: %v", err)
+	}
+	if string(backupData) != original {
+		t.Fatalf("backup should still hold original after rerun, got %q", string(backupData))
+	}
+}
+
 func TestSetupClaude_noBackupWhenFresh(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
