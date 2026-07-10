@@ -159,6 +159,44 @@ func TestCostByDimension_Project(t *testing.T) {
 	}
 }
 
+func TestSpanCountInRange(t *testing.T) {
+	s := seedTestStore(t)
+	// Seed store starts with one llm_call; add a tool call and an event.
+	baseTime := time.Now()
+	if _, err := s.ToolCallInsert(store.ToolCallParams{
+		SessionID: 1, SpanID: "span-count-tool", StartedAt: baseTime,
+		Agent: "claude_code", ToolName: "bash", Success: true,
+	}); err != nil {
+		t.Fatalf("tool insert: %v", err)
+	}
+	if _, err := s.EventInsert(store.EventParams{
+		SessionID: 1, Timestamp: baseTime, Agent: "claude_code",
+		EventName: "claude_code.test", Payload: "{}",
+	}); err != nil {
+		t.Fatalf("event insert: %v", err)
+	}
+
+	svc := NewService(s)
+	from := baseTime.Add(-time.Hour)
+	to := baseTime.Add(time.Hour)
+	count, err := svc.SpanCountInRange(from, to)
+	if err != nil {
+		t.Fatalf("SpanCountInRange: %v", err)
+	}
+	if count != 3 {
+		t.Errorf("span count: got %d, want 3 (1 llm + 1 tool + 1 event)", count)
+	}
+
+	// A window with no spans counts zero.
+	count, err = svc.SpanCountInRange(baseTime.Add(24*time.Hour), baseTime.Add(48*time.Hour))
+	if err != nil {
+		t.Fatalf("SpanCountInRange empty window: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("empty window count: got %d, want 0", count)
+	}
+}
+
 func TestModelSummary_nullModelAndProvider(t *testing.T) {
 	s := seedTestStore(t)
 	// Rows written by other tools may have NULL model/provider; the summary

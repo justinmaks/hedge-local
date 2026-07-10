@@ -147,6 +147,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case LiveTickMsg:
 		return a.handleLiveTick(msg)
+
+	case spanCountMsg:
+		a.spanCount = msg.count
+		return a, nil
 	}
 
 	if a.views[a.activeView] != nil {
@@ -224,9 +228,29 @@ func (a *App) handleLiveTick(msg LiveTickMsg) (tea.Model, tea.Cmd) {
 		}
 		updated, cmd := receiver.UpdateLiveTick(msg, ctx)
 		a.views[idx] = updated
-		return a, cmd
+		return a, tea.Batch(cmd, a.spanCountCmd())
 	}
-	return a, nil
+	return a, a.spanCountCmd()
+}
+
+type spanCountMsg struct{ count int }
+
+// spanCountCmd refreshes the status line's spans-today counter off the UI
+// thread. Rides the existing live tick so it stays current in every view.
+func (a *App) spanCountCmd() tea.Cmd {
+	svc := a.service
+	if svc == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		now := time.Now()
+		midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		count, err := svc.SpanCountInRange(midnight, now)
+		if err != nil {
+			return nil
+		}
+		return spanCountMsg{count: count}
+	}
 }
 
 func (a *App) liveTickViewOrder() []int {
