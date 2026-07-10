@@ -21,6 +21,54 @@ func TestTable_renderUsesFullWidth(t *testing.T) {
 	}
 }
 
+func TestTableScrollDown(t *testing.T) {
+	tbl := NewTable([]Column{
+		{Title: "Name", Width: 10},
+	})
+	var rows [][]string
+	for i := 0; i < 20; i++ {
+		rows = append(rows, []string{string(rune('a' + i))})
+	}
+	tbl.SetRows(rows)
+	tbl.ScrollDown()
+	if tbl.cursor != 1 {
+		t.Errorf("cursor: got %d, want 1", tbl.cursor)
+	}
+}
+
+func TestTableSortByColumn(t *testing.T) {
+	tbl := NewTable([]Column{
+		{Title: "Name", Width: 10},
+		{Title: "Cost", Width: 8},
+	})
+	tbl.SetRows([][]string{
+		{"b", "$2.00"},
+		{"a", "$1.00"},
+	})
+	tbl.SortBy(1) // sort by Cost column
+	if tbl.Rows[0][0] != "a" {
+		t.Errorf("sort: first row should be 'a', got %q", tbl.Rows[0][0])
+	}
+}
+
+func TestTableSortByNumericValues(t *testing.T) {
+	tbl := NewTable([]Column{
+		{Title: "Name", Width: 10},
+		{Title: "Cost", Width: 8},
+	})
+	tbl.SetRows([][]string{
+		{"ten", "$10.00"},
+		{"two", "$2.00"},
+		{"seven", "$7.50"},
+	})
+
+	tbl.SortBy(1)
+
+	if tbl.Rows[0][0] != "two" || tbl.Rows[1][0] != "seven" || tbl.Rows[2][0] != "ten" {
+		t.Fatalf("numeric sort order: got %v", tbl.Rows)
+	}
+}
+
 func TestDistributeWidths_evenDistribution(t *testing.T) {
 	tbl := &Table{
 		Columns: []Column{

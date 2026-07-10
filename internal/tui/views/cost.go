@@ -47,7 +47,7 @@ func (v *CostView) Reload(ctx tui.ViewContext) tea.Cmd {
 func (v *CostView) Hints() string {
 	switch v.mode {
 	case costModeHourly:
-		return "esc back  ↑↓ scroll"
+		return "esc back"
 	default:
 		return "←/→ dimension  ↑↓ select  Enter drill-down  r refresh  e date"
 	}
@@ -107,6 +107,9 @@ func (v *CostView) Update(msg tea.Msg, ctx tui.ViewContext) (tui.View, tea.Cmd) 
 		v.breakdown = m.result.breakdown
 		v.trend = m.result.trend
 		v.err = m.result.err
+		if v.cursor >= len(v.trend) {
+			v.cursor = 0
+		}
 		return v, nil
 	case costHourlyLoadedMsg:
 		v.hourly = m.result.points

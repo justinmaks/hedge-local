@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -25,13 +26,18 @@ func init() {
 	rootCmd.AddCommand(setupCmd)
 }
 
-func backupIfExists(path string) error {
+func backupIfExists(path string, newContent []byte) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
 		}
 		return err
+	}
+	if bytes.Equal(data, newContent) {
+		// File already matches what we are about to write; keep any
+		// earlier backup instead of clobbering it with our own output.
+		return nil
 	}
 	backupPath := path + ".backup"
 	return os.WriteFile(backupPath, data, 0644)
@@ -48,9 +54,6 @@ func runSetupClaude(cmd *cobra.Command, args []string) error {
 	}
 
 	envPath := filepath.Join(hedgeDir, "env.sh")
-	if err := backupIfExists(envPath); err != nil {
-		return fmt.Errorf("backup env.sh: %w", err)
-	}
 	content := `# hcli telemetry environment for Claude Code
 # Source this from your shell rc (~/.bashrc, ~/.zshrc):
 #   source ~/.hedge/env.sh
@@ -69,6 +72,9 @@ export OTEL_LOG_TOOL_DETAILS=1
 # claude() { OTEL_RESOURCE_ATTRIBUTES="hcli.project_path=$PWD" command claude "$@"; }
 `
 
+	if err := backupIfExists(envPath, []byte(content)); err != nil {
+		return fmt.Errorf("backup env.sh: %w", err)
+	}
 	if err := os.WriteFile(envPath, []byte(content), 0644); err != nil {
 		return fmt.Errorf("write env.sh: %w", err)
 	}
