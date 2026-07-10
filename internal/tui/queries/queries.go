@@ -119,6 +119,24 @@ func (s *Service) OverviewSummary(from, to time.Time) (OverviewStats, error) {
 	return stats, nil
 }
 
+// SpanCountInRange counts every recorded span (LLM calls, tool calls, and
+// events) in the window. Drives the status line's "N spans today" counter.
+func (s *Service) SpanCountInRange(from, to time.Time) (int, error) {
+	db := s.store.DB()
+	var total int
+	row := db.QueryRow(
+		`SELECT
+		 (SELECT COUNT(*) FROM llm_calls WHERE started_at BETWEEN ? AND ?) +
+		 (SELECT COUNT(*) FROM tool_calls WHERE started_at BETWEEN ? AND ?) +
+		 (SELECT COUNT(*) FROM events WHERE timestamp BETWEEN ? AND ?)`,
+		from, to, from, to, from, to,
+	)
+	if err := row.Scan(&total); err != nil {
+		return 0, fmt.Errorf("span count: %w", err)
+	}
+	return total, nil
+}
+
 func (s *Service) CostTrend(from, to time.Time, granularity string) ([]CostPoint, error) {
 	db := s.store.DB()
 	var periodExpr, parseFmt string

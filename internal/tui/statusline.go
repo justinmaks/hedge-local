@@ -13,9 +13,11 @@ type StatusInfo struct {
 }
 
 func RenderStatusLine(info StatusInfo, theme *Theme) string {
+	// Read-only DB mode gets a vivid blue badge; active collection gets
+	// green. Both use black text for contrast on the bright backgrounds.
 	label := "◆ DB LIVE"
 	fg := lipgloss.Color("16")
-	bg := lipgloss.Color("236")
+	bg := lipgloss.Color("39")
 	if info.Collecting {
 		label = "● COLLECTING"
 		fg = lipgloss.Color("16")
