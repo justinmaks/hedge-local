@@ -46,10 +46,11 @@ tar -xzf "${TMPDIR}/${ARCHIVE_NAME}" -C "${TMPDIR}"
 echo "Installing to ${INSTALL_DIR}/hcli..."
 if [ -w "${INSTALL_DIR}" ]; then
     cp "${TMPDIR}/hcli" "${INSTALL_DIR}/hcli"
+    chmod +x "${INSTALL_DIR}/hcli"
 else
     sudo cp "${TMPDIR}/hcli" "${INSTALL_DIR}/hcli"
+    sudo chmod +x "${INSTALL_DIR}/hcli"
 fi
-chmod +x "${INSTALL_DIR}/hcli"
 
 echo ""
 echo "hcli installed successfully!"

@@ -17,11 +17,24 @@ func NewWriter(s *store.Store, withLogs bool) *Writer {
 	return &Writer{store: s, withLogs: withLogs}
 }
 
+// Write persists a batch of events. A failing event (malformed, or a storage
+// error) is skipped so it cannot poison the rest of the batch: erroring the
+// whole request would make the OTLP client re-send events that already
+// landed. Only when nothing in a non-empty batch could be written does Write
+// return an error, so the client knows to retry.
 func (w *Writer) Write(events []normalize.Event) error {
+	var firstErr error
+	failed := 0
 	for _, e := range events {
 		if err := w.writeOne(e); err != nil {
-			return err
+			failed++
+			if firstErr == nil {
+				firstErr = err
+			}
 		}
+	}
+	if failed > 0 && failed == len(events) {
+		return fmt.Errorf("all %d events failed, first error: %w", failed, firstErr)
 	}
 	return nil
 }

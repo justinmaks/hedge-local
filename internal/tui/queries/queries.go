@@ -392,7 +392,7 @@ type ModelStats struct {
 func (s *Service) ModelSummary(from, to time.Time) ([]ModelStats, error) {
 	db := s.store.DB()
 	rows, err := db.Query(
-		`SELECT agent, model, provider, COUNT(*) as calls,
+		`SELECT agent, COALESCE(model, ''), COALESCE(provider, ''), COUNT(*) as calls,
 		 COALESCE(SUM(input_tokens), 0), COALESCE(SUM(output_tokens), 0),
 		 COALESCE(SUM(cache_read_tokens), 0), COALESCE(SUM(cache_write_tokens), 0),
 		 COALESCE(SUM(cost_usd), 0), COALESCE(AVG(ttft_ms), 0)

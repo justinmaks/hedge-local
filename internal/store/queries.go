@@ -1,6 +1,7 @@
 package store
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
 )
@@ -25,15 +26,19 @@ func (s *Store) QueryRaw(sqlText string) (cols []string, rows [][]string, err er
 	for rows2.Next() {
 		raw := make([]any, len(cols))
 		for i := range raw {
-			var v string
-			raw[i] = &v
+			raw[i] = &sql.NullString{}
 		}
 		if err := rows2.Scan(raw...); err != nil {
 			return nil, nil, err
 		}
 		row := make([]string, len(cols))
 		for i, v := range raw {
-			row[i] = *(v.(*string))
+			ns := v.(*sql.NullString)
+			if ns.Valid {
+				row[i] = ns.String
+			} else {
+				row[i] = "NULL"
+			}
 		}
 		rows = append(rows, row)
 	}

@@ -45,23 +45,32 @@ func TestSessionSetEnded(t *testing.T) {
 	}
 }
 
-func TestSessionAddTokens(t *testing.T) {
+func TestSessionAggregates_accumulateAcrossInserts(t *testing.T) {
 	s := tempDB(t)
 	pid, _ := s.ProjectUpsert("/repo", "repo")
 	id, _ := s.SessionUpsert("ext-tok", "claude_code", pid, time.Now(), "1.0")
 
-	if err := s.SessionAddTokens(id, 1000, 500, 200, 50); err != nil {
-		t.Fatalf("SessionAddTokens: %v", err)
+	insert := func(span string, input, output, cacheRead, cacheWrite int, cost float64) {
+		t.Helper()
+		_, err := s.LLMCallInsert(LLMCallParams{
+			SessionID: id, SpanID: span, StartedAt: time.Now(), Agent: "claude_code",
+			Model: "claude-sonnet-4", Provider: "anthropic",
+			InputTokens: input, OutputTokens: output,
+			CacheReadTokens: cacheRead, CacheWriteTokens: cacheWrite, CostUSD: cost,
+		})
+		if err != nil {
+			t.Fatalf("LLMCallInsert %s: %v", span, err)
+		}
 	}
-	if err := s.SessionAddTokens(id, 2000, 1000, 400, 100); err != nil {
-		t.Fatalf("SessionAddTokens second: %v", err)
-	}
+	insert("span-agg-1", 1000, 500, 200, 50, 0.50)
+	insert("span-agg-2", 2000, 1000, 400, 100, 0.25)
 
 	var inTok, outTok, crTok, cwTok, msgCount int
+	var cost float64
 	s.db.QueryRow(
-		`SELECT total_input_tokens, total_output_tokens, total_cache_read_tokens, total_cache_write_tokens, message_count FROM sessions WHERE id = ?`,
+		`SELECT total_input_tokens, total_output_tokens, total_cache_read_tokens, total_cache_write_tokens, message_count, total_cost_usd FROM sessions WHERE id = ?`,
 		id,
-	).Scan(&inTok, &outTok, &crTok, &cwTok, &msgCount)
+	).Scan(&inTok, &outTok, &crTok, &cwTok, &msgCount, &cost)
 
 	if inTok != 3000 {
 		t.Errorf("input tokens: got %d, want 3000", inTok)
@@ -78,22 +87,6 @@ func TestSessionAddTokens(t *testing.T) {
 	if msgCount != 2 {
 		t.Errorf("message_count: got %d, want 2", msgCount)
 	}
-}
-
-func TestSessionAddCost(t *testing.T) {
-	s := tempDB(t)
-	pid, _ := s.ProjectUpsert("/repo", "repo")
-	id, _ := s.SessionUpsert("ext-cost", "claude_code", pid, time.Now(), "1.0")
-
-	if err := s.SessionAddCost(id, 0.50); err != nil {
-		t.Fatalf("SessionAddCost: %v", err)
-	}
-	if err := s.SessionAddCost(id, 0.25); err != nil {
-		t.Fatalf("SessionAddCost second: %v", err)
-	}
-
-	var cost float64
-	s.db.QueryRow(`SELECT total_cost_usd FROM sessions WHERE id = ?`, id).Scan(&cost)
 	if abs(cost-0.75) > 0.0001 {
 		t.Errorf("total_cost_usd: got %v, want 0.75", cost)
 	}
