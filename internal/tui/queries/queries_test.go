@@ -93,6 +93,29 @@ func TestCostByDimension(t *testing.T) {
 	}
 }
 
+func TestCostByDimension_AgentSpansProjects(t *testing.T) {
+	s := seedTestStore(t)
+	// Same agent active in a second project: the agent breakdown must
+	// still collapse to one row, not split per project.
+	baseTime := time.Now()
+	pid2, _ := s.ProjectUpsert("/tmp/other-project", "other-project")
+	_, _ = s.SessionUpsert("sess-other", "claude_code", pid2, baseTime, "")
+
+	svc := NewService(s)
+	from := time.Now().Add(-24 * time.Hour)
+	to := time.Now().Add(time.Hour)
+	breakdown, err := svc.CostByDimension(from, to, "agent")
+	if err != nil {
+		t.Fatalf("CostByDimension: %v", err)
+	}
+	if len(breakdown) != 1 {
+		t.Fatalf("agent breakdown should have 1 row for 1 agent, got %d: %+v", len(breakdown), breakdown)
+	}
+	if breakdown[0].Sessions != 2 {
+		t.Errorf("Sessions: got %d, want 2", breakdown[0].Sessions)
+	}
+}
+
 func TestCostByDimension_Model(t *testing.T) {
 	s := seedTestStore(t)
 	svc := NewService(s)
