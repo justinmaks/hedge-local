@@ -28,26 +28,6 @@ func (s *Store) SessionSetEnded(id int64, endedAt time.Time) error {
 	return err
 }
 
-func (s *Store) SessionAddCost(id int64, cost float64) error {
-	_, err := s.db.Exec(`UPDATE sessions SET total_cost_usd = total_cost_usd + ? WHERE id = ?`, cost, id)
-	return err
-}
-
-func (s *Store) SessionAddTokens(id int64, input, output, cacheRead, cacheWrite int) error {
-	_, err := s.db.Exec(
-		`UPDATE sessions SET
-		 total_input_tokens = total_input_tokens + ?,
-		 total_output_tokens = total_output_tokens + ?,
-		 total_cache_read_tokens = total_cache_read_tokens + ?,
-		 total_cache_write_tokens = total_cache_write_tokens + ?,
-		 message_count = message_count + 1
-		 WHERE id = ?`,
-		input, output, cacheRead, cacheWrite, id,
-	)
-	return err
-}
-
-func (s *Store) SessionIncrementToolCalls(id int64) error {
-	_, err := s.db.Exec(`UPDATE sessions SET tool_call_count = tool_call_count + 1 WHERE id = ?`, id)
-	return err
-}
+// Session cost/token/tool-count aggregates are updated only inside
+// LLMCallInsert and ToolCallInsert transactions so they can never drift from
+// the underlying rows. Do not add standalone mutators for them here.

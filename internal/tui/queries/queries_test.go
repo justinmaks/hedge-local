@@ -159,6 +159,30 @@ func TestCostByDimension_Project(t *testing.T) {
 	}
 }
 
+func TestModelSummary_nullModelAndProvider(t *testing.T) {
+	s := seedTestStore(t)
+	// Rows written by other tools may have NULL model/provider; the summary
+	// must not error on them.
+	if _, err := s.DB().Exec(
+		`INSERT INTO llm_calls (session_id, started_at, agent, model, provider, cost_usd)
+		 VALUES (1, ?, 'claude_code', NULL, NULL, 0.01)`,
+		time.Now(),
+	); err != nil {
+		t.Fatalf("insert null-provider row: %v", err)
+	}
+
+	svc := NewService(s)
+	from := time.Now().Add(-24 * time.Hour)
+	to := time.Now().Add(time.Hour)
+	stats, err := svc.ModelSummary(from, to)
+	if err != nil {
+		t.Fatalf("ModelSummary with NULL model/provider: %v", err)
+	}
+	if len(stats) < 2 {
+		t.Errorf("expected seeded row plus NULL row, got %d", len(stats))
+	}
+}
+
 func TestCostTrend_Hourly(t *testing.T) {
 	s := seedTestStore(t)
 	svc := NewService(s)
