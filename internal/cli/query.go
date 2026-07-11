@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/justinmaks/hedge-local/internal/config"
 	"github.com/justinmaks/hedge-local/internal/store"
 	"github.com/spf13/cobra"
 )
@@ -28,17 +27,17 @@ func runQuery(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("only SELECT or WITH queries are allowed")
 	}
 
-	db := dbPath
-	if db == "" {
-		db = config.DefaultDBPath()
+	_, db, err := loadCLIConfigAndDB()
+	if err != nil {
+		return err
 	}
 
 	// Ensure the schema exists (idempotent) so queries on a fresh machine
 	// return empty results rather than "no such table", then run the user's
 	// SQL on a read-only connection that refuses writes.
-	init, err := store.New(db)
-	if err != nil {
-		return fmt.Errorf("open store: %w", err)
+	init, err2 := store.New(db)
+	if err2 != nil {
+		return fmt.Errorf("open store: %w", err2)
 	}
 	init.Close()
 
