@@ -83,18 +83,16 @@ Download the archive for your platform from [GitHub Releases](https://github.com
 ### Uninstall
 
 ```sh
-# 1. Stop the daemon if running
+# 1. Stop the daemon if running, then remove data and config
 hcli stop
+hcli uninstall        # removes ~/.hedge (prompts first; --dry-run to preview)
 
 # 2. Remove the binary (location depends on how you installed)
 sudo rm -f /usr/local/bin/hcli          # shell installer
 rm -f "$(go env GOPATH)/bin/hcli"       # go install
 # or: sudo dpkg -r hcli   /   sudo rpm -e hcli   (.deb / .rpm)
 
-# 3. Remove local data and config (telemetry database, logs, env files)
-rm -rf ~/.hedge
-
-# 4. Remove the telemetry env line you added to your shell rc (~/.bashrc or ~/.zshrc):
+# 3. Remove the telemetry env line you added to your shell rc (~/.bashrc or ~/.zshrc):
 #    source ~/.hedge/env.sh
 ```
 
@@ -162,6 +160,17 @@ Flags: `--range` (today, 7d, 30d, custom:YYYY-MM-DD:YYYY-MM-DD), `--format` (csv
 Run read-only SQL against the local database with `hcli query`. See
 [SQL query](docs/advanced.md#sql-query-power-users).
 
+### Data retention
+
+```sh
+hcli prune --older-than 90d --dry-run   # preview what would be deleted
+hcli prune --older-than 90d             # delete spans/sessions older than 90 days
+hcli prune --older-than 12w --vacuum    # also reclaim disk space
+```
+
+Set `retention_days` in the config file to give `hcli prune` a default window.
+`hcli status` shows the current database size.
+
 ### Pricing management
 
 ```sh
@@ -169,6 +178,20 @@ hcli pricing list                    # list local pricing
 hcli pricing import /path/to/pricing.json  # import pricing JSON
 hcli pricing fetch                   # fetch latest pricing from GitHub
 ```
+
+## Configuration
+
+Optional, at `~/.hedge/config.toml` (flags override the file):
+
+```toml
+db_path = "/custom/path/hedge.db"  # default ~/.hedge/hedge.db
+otlp_port = 4318                   # OTLP/HTTP listen port
+with_logs = false                  # capture log events (full prompts)
+retention_days = 90                # default window for hcli prune
+```
+
+Unknown keys produce a warning (typo detection), and a path passed via
+`--config` must exist.
 
 ## TUI Keybindings
 
