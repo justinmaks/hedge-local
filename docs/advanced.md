@@ -39,6 +39,12 @@ to your current directory. The same mechanism also still works for Claude Code
 (`claude() { OTEL_RESOURCE_ATTRIBUTES="hcli.project_path=$PWD" command claude "$@"; }`)
 if you prefer it over the hook.
 
+Without the wrapper, OpenCode sessions are simply grouped together under
+`(ungrouped)` in the Projects view: cost and token totals stay complete and
+correct everywhere, they just aren't split by repo for OpenCode. Automatic
+OpenCode attribution (no wrapper, matching the Claude Code behavior) is
+planned for a later version via an OpenCode plugin.
+
 ## SQL query (power users)
 
 Run read-only SQL against the local database:
