@@ -178,14 +178,14 @@ func (v *CostView) Render(width, height int, theme *tui.Theme) string {
 
 	switch v.mode {
 	case costModeDaily:
-		return header + "\n\n" + v.renderDailyBars(width, theme)
+		return header + "\n\n" + v.renderDailyBars(width, height-2, theme)
 	case costModeHourly:
-		return header + "\n\n" + v.renderHourlyBars(width, theme)
+		return header + "\n\n" + v.renderHourlyBars(width, height-2, theme)
 	}
 	return header
 }
 
-func (v *CostView) renderDailyBars(width int, theme *tui.Theme) string {
+func (v *CostView) renderDailyBars(width, height int, theme *tui.Theme) string {
 	var lines []string
 	lines = append(lines, theme.CardTitle.Render("Daily Cost (Enter to drill down)"))
 
@@ -208,7 +208,22 @@ func (v *CostView) renderDailyBars(width int, theme *tui.Theme) string {
 	if barWidth > 60 {
 		barWidth = 60
 	}
-	for i, p := range v.trend {
+
+	// Fit within the terminal: title + breakdown section are fixed, the
+	// bars get whatever is left, windowed around the cursor.
+	// Overhead: title, blank line, table header, breakdown rows, and up
+	// to two clipped-window markers.
+	overhead := 5 + len(v.breakdown)
+	avail := height - overhead
+	if avail < 3 {
+		avail = 3
+	}
+	start, end := windowRange(len(v.trend), avail, v.cursor)
+	if start > 0 {
+		lines = append(lines, theme.Dim.Render(fmt.Sprintf("  ↑ %d earlier", start)))
+	}
+	for i := start; i < end; i++ {
+		p := v.trend[i]
 		pct := 0.0
 		if maxCost > 0 {
 			pct = p.Cost / maxCost * 100
@@ -223,6 +238,9 @@ func (v *CostView) renderDailyBars(width int, theme *tui.Theme) string {
 			lines = append(lines, "  "+dateStr+"  "+bar+"  "+costStr)
 		}
 	}
+	if end < len(v.trend) {
+		lines = append(lines, theme.Dim.Render(fmt.Sprintf("  ↓ %d later", len(v.trend)-end)))
+	}
 
 	lines = append(lines, "")
 	lines = append(lines, theme.CardTitle.Render(
@@ -235,7 +253,7 @@ func (v *CostView) renderDailyBars(width int, theme *tui.Theme) string {
 	return strings.Join(lines, "\n")
 }
 
-func (v *CostView) renderHourlyBars(width int, theme *tui.Theme) string {
+func (v *CostView) renderHourlyBars(width, height int, theme *tui.Theme) string {
 	var lines []string
 	title := fmt.Sprintf("Hourly Cost for %s (Esc to go back)", v.drillDay.Format("2006-01-02"))
 	lines = append(lines, theme.CardTitle.Render(title))
@@ -259,7 +277,18 @@ func (v *CostView) renderHourlyBars(width int, theme *tui.Theme) string {
 	if barWidth > 60 {
 		barWidth = 60
 	}
-	for _, p := range v.hourly {
+
+	avail := height - 4 // title, blank, total, slack
+	if avail < 3 {
+		avail = 3
+	}
+	hours := v.hourly
+	clipped := 0
+	if len(hours) > avail {
+		clipped = len(hours) - avail
+		hours = hours[:avail]
+	}
+	for _, p := range hours {
 		pct := 0.0
 		if maxCost > 0 {
 			pct = p.Cost / maxCost * 100
@@ -270,6 +299,9 @@ func (v *CostView) renderHourlyBars(width int, theme *tui.Theme) string {
 		lines = append(lines, fmt.Sprintf("  %s  %s  %7s", hourStr, bar, costStr))
 	}
 
+	if clipped > 0 {
+		lines = append(lines, theme.Dim.Render(fmt.Sprintf("  (+%d more hours)", clipped)))
+	}
 	total := 0.0
 	for _, p := range v.hourly {
 		total += p.Cost
@@ -278,4 +310,20 @@ func (v *CostView) renderHourlyBars(width int, theme *tui.Theme) string {
 	lines = append(lines, fmt.Sprintf("  Day total: $%.2f (%d hours)", total, len(v.hourly)))
 
 	return strings.Join(lines, "\n")
+}
+
+// windowRange picks a [start, end) slice of total rows that fits in avail
+// while keeping cursor visible, preferring to center it.
+func windowRange(total, avail, cursor int) (int, int) {
+	if total <= avail {
+		return 0, total
+	}
+	start := cursor - avail/2
+	if start < 0 {
+		start = 0
+	}
+	if start+avail > total {
+		start = total - avail
+	}
+	return start, start + avail
 }

@@ -85,8 +85,11 @@ func Sparkline(values []float64, maxVal float64, width int) string {
 	}
 
 	if len(values) <= width {
+		// Stretch sparse data across the full width (sample-and-hold) so a
+		// 7-point weekly trend reads as a chart, not a 7-cell blip.
 		var s strings.Builder
-		for _, v := range values {
+		for i := 0; i < width; i++ {
+			v := values[i*len(values)/width]
 			idx := int(v / maxVal * float64(len(blockChars)-1))
 			if idx < 0 {
 				idx = 0
@@ -95,10 +98,6 @@ func Sparkline(values []float64, maxVal float64, width int) string {
 				idx = len(blockChars) - 1
 			}
 			s.WriteString(blockChars[idx])
-		}
-		remaining := width - len(values)
-		if remaining > 0 {
-			s.WriteString(strings.Repeat(" ", remaining))
 		}
 		return s.String()
 	}

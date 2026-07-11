@@ -47,3 +47,16 @@ func TestBar_responsiveWidth(t *testing.T) {
 		t.Errorf("expected 50 chars, got %d: %q", full, result)
 	}
 }
+
+func TestSparkline_stretchesSparseData(t *testing.T) {
+	// 7 points across 70 cells: every cell should be a block char, not
+	// trailing space padding.
+	values := []float64{1, 2, 3, 4, 3, 2, 1}
+	result := Sparkline(values, 4, 70)
+	if strings.Contains(result, " ") {
+		t.Errorf("stretched sparkline should have no padding spaces: %q", result)
+	}
+	if len([]rune(result)) != 70 {
+		t.Errorf("width: got %d, want 70", len([]rune(result)))
+	}
+}

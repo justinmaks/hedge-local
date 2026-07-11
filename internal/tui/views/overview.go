@@ -13,10 +13,11 @@ import (
 )
 
 type OverviewView struct {
-	service *queries.Service
-	stats   queries.OverviewStats
-	trend   []queries.CostPoint
-	err     error
+	service    *queries.Service
+	stats      queries.OverviewStats
+	trend      []queries.CostPoint
+	rangeLabel string
+	err        error
 }
 
 func NewOverviewView(service *queries.Service) *OverviewView {
@@ -28,9 +29,21 @@ func (v *OverviewView) Title() string { return "Today" }
 func (v *OverviewView) Init() tea.Cmd { return nil }
 
 func (v *OverviewView) Reload(ctx tui.ViewContext) tea.Cmd {
+	label := rangeLabel(ctx.From, ctx.To)
 	return func() tea.Msg {
-		return overviewLoadedMsg{loadOverview(v.service, ctx.From, ctx.To)}
+		result := loadOverview(v.service, ctx.From, ctx.To)
+		result.rangeLabel = label
+		return overviewLoadedMsg{result}
 	}
+}
+
+// rangeLabel names the active filter span for section titles.
+func rangeLabel(from, to time.Time) string {
+	days := int(to.Sub(from).Hours()/24 + 0.5)
+	if days <= 1 {
+		return "today"
+	}
+	return fmt.Sprintf("%dd", days)
 }
 
 func (v *OverviewView) Hints() string {
@@ -42,9 +55,10 @@ type overviewLoadedMsg struct {
 }
 
 type overviewResult struct {
-	stats queries.OverviewStats
-	trend []queries.CostPoint
-	err   error
+	stats      queries.OverviewStats
+	trend      []queries.CostPoint
+	rangeLabel string
+	err        error
 }
 
 func loadOverview(service *queries.Service, from, to time.Time) overviewResult {
@@ -63,6 +77,7 @@ func (v *OverviewView) Update(msg tea.Msg, ctx tui.ViewContext) (tui.View, tea.C
 	case overviewLoadedMsg:
 		v.stats = m.result.stats
 		v.trend = m.result.trend
+		v.rangeLabel = m.result.rangeLabel
 		v.err = m.result.err
 		return v, nil
 	}
@@ -99,7 +114,11 @@ func (v *OverviewView) Render(width, height int, theme *tui.Theme) string {
 		sparkWidth = 20
 	}
 	sparkline := tui.Sparkline(sparkValues, maxFloat(sparkValues), sparkWidth)
-	sparkSection := theme.CardTitle.Render("7-day Cost Trend") + "\n" + sparkline
+	trendTitle := "Cost Trend"
+	if v.rangeLabel != "" {
+		trendTitle = fmt.Sprintf("Cost Trend (%s)", v.rangeLabel)
+	}
+	sparkSection := theme.CardTitle.Render(trendTitle) + "\n" + sparkline
 
 	var agentLines []string
 	agentLines = append(agentLines, theme.CardTitle.Render("By Agent"))
