@@ -89,7 +89,8 @@ func (v *OverviewView) Render(width, height int, theme *tui.Theme) string {
 		return theme.ErrorMsg.Render("Error: " + v.err.Error())
 	}
 
-	cardWidth := (width - 6) / 4
+	// Four cards, each drawing a 2-cell border on top of Width().
+	cardWidth := (width - 8) / 4
 	deltaStr := fmt.Sprintf("(%.1f%% vs prev)", v.stats.CostDeltaPct)
 	if v.stats.CostDeltaPct > 0 {
 		deltaStr = "↑ " + deltaStr
