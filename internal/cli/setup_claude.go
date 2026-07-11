@@ -2,9 +2,11 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -43,6 +45,72 @@ func backupIfExists(path string, newContent []byte) error {
 	return os.WriteFile(backupPath, data, 0644)
 }
 
+// installSessionStartHook merges a SessionStart hook running
+// "<hcli> session-start" into the Claude Code settings file, preserving all
+// other settings. Telemetry carries no working directory, so this hook is
+// the only wrapper-free source of per-project attribution. Returns true if
+// the file was changed.
+func installSessionStartHook(settingsPath, hcliPath string) (bool, error) {
+	settings := map[string]any{}
+	if data, err := os.ReadFile(settingsPath); err == nil {
+		if err := json.Unmarshal(data, &settings); err != nil {
+			return false, fmt.Errorf("parse %s (not modifying it): %w", settingsPath, err)
+		}
+	} else if !os.IsNotExist(err) {
+		return false, err
+	}
+
+	hooks, ok := settings["hooks"].(map[string]any)
+	if !ok {
+		if _, exists := settings["hooks"]; exists {
+			return false, fmt.Errorf("%s has an unexpected hooks shape; not modifying it", settingsPath)
+		}
+		hooks = map[string]any{}
+	}
+	entries, ok := hooks["SessionStart"].([]any)
+	if !ok {
+		if _, exists := hooks["SessionStart"]; exists {
+			return false, fmt.Errorf("%s has an unexpected SessionStart shape; not modifying it", settingsPath)
+		}
+		entries = []any{}
+	}
+
+	// Already installed (any command mentioning session-start counts, so a
+	// user-edited path is left alone).
+	raw, _ := json.Marshal(entries)
+	if strings.Contains(string(raw), "session-start") {
+		return false, nil
+	}
+
+	entries = append(entries, map[string]any{
+		"hooks": []any{
+			map[string]any{
+				"type":    "command",
+				"command": hcliPath + " session-start",
+			},
+		},
+	})
+	hooks["SessionStart"] = entries
+	settings["hooks"] = hooks
+
+	updated, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return false, err
+	}
+	updated = append(updated, '\n')
+
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0755); err != nil {
+		return false, err
+	}
+	if err := backupIfExists(settingsPath, updated); err != nil {
+		return false, fmt.Errorf("backup settings: %w", err)
+	}
+	if err := os.WriteFile(settingsPath, updated, 0644); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func runSetupClaude(cmd *cobra.Command, args []string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -67,9 +135,6 @@ export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 export OTEL_METRIC_EXPORT_INTERVAL=5000
 export OTEL_LOG_TOOL_DETAILS=1
-
-# For per-project attribution, uncomment and use as a shell function:
-# claude() { OTEL_RESOURCE_ATTRIBUTES="hcli.project_path=$PWD" command claude "$@"; }
 `
 
 	if err := backupIfExists(envPath, []byte(content)); err != nil {
@@ -81,11 +146,26 @@ export OTEL_LOG_TOOL_DETAILS=1
 
 	out := cmd.OutOrStdout()
 	fmt.Fprintf(out, "Wrote %s\n\n", envPath)
+
+	hcliPath, err := os.Executable()
+	if err != nil || hcliPath == "" {
+		hcliPath = "hcli"
+	}
+	settingsPath := filepath.Join(home, ".claude", "settings.json")
+	changed, err := installSessionStartHook(settingsPath, hcliPath)
+	if err != nil {
+		fmt.Fprintf(out, "Warning: could not install the per-project hook: %v\n", err)
+		fmt.Fprintf(out, "Sessions will appear under (ungrouped); see docs/advanced.md.\n\n")
+	} else if changed {
+		fmt.Fprintf(out, "Installed SessionStart hook in %s\n", settingsPath)
+		fmt.Fprintf(out, "(attributes each session to the directory you start claude in)\n\n")
+	} else {
+		fmt.Fprintf(out, "SessionStart hook already installed in %s\n\n", settingsPath)
+	}
+
 	fmt.Fprintf(out, "Add this line to your shell rc file (~/.bashrc or ~/.zshrc):\n")
 	fmt.Fprintf(out, "  source ~/.hedge/env.sh\n\n")
 	fmt.Fprintf(out, "Then restart your shell or run: source ~/.hedge/env.sh\n\n")
-	fmt.Fprintf(out, "For per-project attribution, uncomment the claude() wrapper function\n")
-	fmt.Fprintf(out, "in %s (recommended).\n\n", envPath)
 	fmt.Fprintf(out, "Next: run 'hcli collect' in one terminal, then use Claude Code in another.\n")
 	return nil
 }
