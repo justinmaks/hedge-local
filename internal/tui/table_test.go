@@ -79,10 +79,13 @@ func TestDistributeWidths_evenDistribution(t *testing.T) {
 		},
 	}
 	widths := tbl.distributeWidths(100)
-	// 100 total - 2 spaces spacing = 98 for columns
-	// 98 / 3 = 32 remainder 2 → [33, 33, 32]
-	if widths[0]+widths[1]+widths[2]+2 != 100 {
-		t.Errorf("widths should sum to 100 (with spacing): %v", widths)
+	// extra = 100 - fixed(30) - spacing(2) = 68; 68/3 = 22 remainder 2,
+	// remainder goes to the first two columns: 10+23, 10+23, 10+22.
+	want := []int{33, 33, 32}
+	for i := range want {
+		if widths[i] != want[i] {
+			t.Fatalf("widths: got %v, want %v", widths, want)
+		}
 	}
 }
 

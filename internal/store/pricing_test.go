@@ -31,9 +31,9 @@ func TestPricingFor_currentModels(t *testing.T) {
 	}
 	now := time.Now()
 	cases := []struct {
-		model            string
-		input, output    float64
-		cacheR, cacheW   float64
+		model          string
+		input, output  float64
+		cacheR, cacheW float64
 	}{
 		{"claude-opus-4-8", 5, 25, 0.50, 6.25},
 		{"claude-opus-4-5", 5, 25, 0.50, 6.25},
