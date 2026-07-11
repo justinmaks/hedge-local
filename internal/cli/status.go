@@ -31,28 +31,23 @@ func runStatus(cmd *cobra.Command, args []string) error {
 }
 
 func printStatus(w io.Writer, pidPath, dbPath string) {
-	pid, err := readPIDFile(pidPath)
-	if err != nil {
+	if pid, err := readPIDFile(pidPath); err != nil {
 		fmt.Fprintf(w, "hcli daemon: not running\n")
 		fmt.Fprintf(w, "  run 'hcli collect -d' to start\n")
-		return
-	}
-
-	if !processAlive(pid) {
+	} else if !processAlive(pid) {
 		fmt.Fprintf(w, "hcli daemon: stopped (stale PID file at %s)\n", pidPath)
 		fmt.Fprintf(w, "  run 'hcli collect -d' to start\n")
 		_ = removePIDFile(pidPath)
-		return
+	} else {
+		fmt.Fprintf(w, "hcli daemon: running (PID %d)\n", pid)
+		fmt.Fprintf(w, "  log:      %s\n", defaultLogPath())
 	}
-
-	fmt.Fprintf(w, "hcli daemon: running (PID %d)\n", pid)
-	logPath := defaultLogPath()
-	fmt.Fprintf(w, "  log:      %s\n", logPath)
 
 	if dbStat, err := os.Stat(dbPath); err == nil {
 		fmt.Fprintf(w, "  db:       %s (%s)\n", dbPath, formatBytes(dbStat.Size()))
 	} else {
 		fmt.Fprintf(w, "  db:       %s (not found)\n", dbPath)
+		return
 	}
 
 	s, err := store.New(dbPath)
@@ -66,11 +61,11 @@ func printStatus(w io.Writer, pidPath, dbPath string) {
 	from := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 
 	var sessionCount int
-	_ = s.DB().QueryRow(`SELECT COUNT(*) FROM sessions WHERE started_at >= ?`, from).Scan(&sessionCount)
+	_ = s.DB().QueryRow(`SELECT COUNT(*) FROM sessions WHERE started_at >= ?`, store.FormatTime(from)).Scan(&sessionCount)
 	fmt.Fprintf(w, "  sessions: %d today\n", sessionCount)
 
 	var llmCount int
-	_ = s.DB().QueryRow(`SELECT COUNT(*) FROM llm_calls WHERE started_at >= ?`, from).Scan(&llmCount)
+	_ = s.DB().QueryRow(`SELECT COUNT(*) FROM llm_calls WHERE started_at >= ?`, store.FormatTime(from)).Scan(&llmCount)
 	fmt.Fprintf(w, "  llm calls: %d today\n", llmCount)
 }
 

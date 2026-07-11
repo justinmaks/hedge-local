@@ -9,7 +9,6 @@ import (
 	"syscall"
 
 	"github.com/justinmaks/hedge-local/internal/collect"
-	"github.com/justinmaks/hedge-local/internal/config"
 	"github.com/justinmaks/hedge-local/internal/normalize"
 	"github.com/justinmaks/hedge-local/internal/store"
 	"github.com/spf13/cobra"
@@ -40,22 +39,9 @@ func runCollect(cmd *cobra.Command, args []string) error {
 		return forkDaemon(cmd, args)
 	}
 
-	cfgPath := cfgFile
-	if cfgPath == "" {
-		cfgPath = config.DefaultPath()
-	}
-	cfg, err := config.Load(cfgPath)
+	cfg, db, err := loadCLIConfigAndDB()
 	if err != nil {
-		return fmt.Errorf("load config: %w", err)
-	}
-
-	db := dbPath
-	if db == "" {
-		if cfg.DBPath != "" {
-			db = cfg.DBPath
-		} else {
-			db = config.DefaultDBPath()
-		}
+		return err
 	}
 
 	s, err := store.New(db)

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -8,9 +9,14 @@ import (
 )
 
 type Config struct {
-	DBPath   string `toml:"db_path"`
-	OTLPPort int    `toml:"otlp_port"`
-	WithLogs bool   `toml:"with_logs"`
+	DBPath        string `toml:"db_path"`
+	OTLPPort      int    `toml:"otlp_port"`
+	WithLogs      bool   `toml:"with_logs"`
+	RetentionDays int    `toml:"retention_days"`
+
+	// UnknownKeys lists config file keys that did not match any field,
+	// so callers can warn about typos. Not part of the file format.
+	UnknownKeys []string `toml:"-"`
 }
 
 func defaults() *Config {
@@ -20,16 +26,35 @@ func defaults() *Config {
 	}
 }
 
+// Load reads the config at path, tolerating a missing file (the default
+// path may simply not exist yet).
 func Load(path string) (*Config, error) {
+	return load(path, false)
+}
+
+// LoadExplicit reads a config path the user named explicitly; a missing
+// file is an error rather than silently falling back to defaults.
+func LoadExplicit(path string) (*Config, error) {
+	return load(path, true)
+}
+
+func load(path string, mustExist bool) (*Config, error) {
 	cfg := defaults()
 	if path == "" {
 		return cfg, nil
 	}
 	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if mustExist {
+			return nil, fmt.Errorf("config file %s does not exist", path)
+		}
 		return cfg, nil
 	}
-	if _, err := toml.DecodeFile(path, cfg); err != nil {
+	md, err := toml.DecodeFile(path, cfg)
+	if err != nil {
 		return nil, err
+	}
+	for _, key := range md.Undecoded() {
+		cfg.UnknownKeys = append(cfg.UnknownKeys, key.String())
 	}
 	return cfg, nil
 }

@@ -56,3 +56,40 @@ func TestDefaultPath(t *testing.T) {
 		t.Errorf("DefaultPath() = %q, want %q", got, want)
 	}
 }
+
+func TestLoadExplicit_missingFileErrors(t *testing.T) {
+	if _, err := LoadExplicit("/nonexistent/typo.toml"); err == nil {
+		t.Fatal("explicitly named missing config should error, not fall back to defaults")
+	}
+}
+
+func TestLoad_reportsUnknownKeys(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	content := "otlp_port = 5555\nretenton_days = 90\n" // note the typo
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(cfg.UnknownKeys) != 1 || cfg.UnknownKeys[0] != "retenton_days" {
+		t.Errorf("UnknownKeys: got %v, want [retenton_days]", cfg.UnknownKeys)
+	}
+}
+
+func TestLoad_retentionDays(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	if err := os.WriteFile(path, []byte("retention_days = 45\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.RetentionDays != 45 {
+		t.Errorf("RetentionDays: got %d, want 45", cfg.RetentionDays)
+	}
+}
