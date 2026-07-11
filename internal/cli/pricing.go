@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/justinmaks/hedge-local/internal/config"
 	"github.com/justinmaks/hedge-local/internal/store"
 	"github.com/spf13/cobra"
 )
@@ -27,21 +26,9 @@ func init() {
 }
 
 func openCLIStore() (*store.Store, error) {
-	db := dbPath
-	if db == "" {
-		cfgPath := cfgFile
-		if cfgPath == "" {
-			cfgPath = config.DefaultPath()
-		}
-		cfg, err := config.Load(cfgPath)
-		if err != nil {
-			return nil, fmt.Errorf("load config: %w", err)
-		}
-		if cfg.DBPath != "" {
-			db = cfg.DBPath
-		} else {
-			db = config.DefaultDBPath()
-		}
+	_, db, err := loadCLIConfigAndDB()
+	if err != nil {
+		return nil, err
 	}
 	s, err := store.New(db)
 	if err != nil {
