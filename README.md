@@ -119,10 +119,12 @@ source ~/.hedge/opencode-env.sh
 
 Adds the `@devtheops/opencode-plugin-otel` plugin to your OpenCode config and writes its env vars. Source the file in the shell you run `opencode` from.
 
-### Per-project attribution (optional)
+### Per-project attribution
 
-By default all sessions land under `(ungrouped)` in the Projects view. To group
-sessions by repo, see [Per-project attribution](docs/advanced.md#per-project-attribution).
+For Claude Code this is automatic: `hcli setup claude` installs a SessionStart
+hook that attributes each session to the directory you start `claude` in.
+OpenCode sessions still need a small shell wrapper; see
+[Per-project attribution](docs/advanced.md#per-project-attribution).
 
 ## Usage
 

@@ -28,6 +28,14 @@ func (s *Store) SessionSetEnded(id int64, endedAt time.Time) error {
 	return err
 }
 
+// SessionSetProject attributes a session (by its agent-side ID) to a project.
+// Used by the SessionStart hook, which may fire before or after the first
+// telemetry span creates the session row, so the update is unconditional.
+func (s *Store) SessionSetProject(externalID string, projectID int64) error {
+	_, err := s.db.Exec(`UPDATE sessions SET project_id = ? WHERE external_id = ?`, projectID, externalID)
+	return err
+}
+
 // Session cost/token/tool-count aggregates are updated only inside
 // LLMCallInsert and ToolCallInsert transactions so they can never drift from
 // the underlying rows. Do not add standalone mutators for them here.
