@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/justinmaks/hedge-local/internal/config"
 	"github.com/justinmaks/hedge-local/internal/store"
@@ -56,13 +57,20 @@ func runTUI(cmd *cobra.Command, args []string) error {
 }
 
 func loadCLIConfigAndDB() (*config.Config, string, error) {
-	cfgPath := cfgFile
-	if cfgPath == "" {
-		cfgPath = config.DefaultPath()
+	var cfg *config.Config
+	var err error
+	if cfgFile != "" {
+		// An explicitly named config file must exist; a typo should not
+		// silently fall back to defaults.
+		cfg, err = config.LoadExplicit(cfgFile)
+	} else {
+		cfg, err = config.Load(config.DefaultPath())
 	}
-	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		return nil, "", fmt.Errorf("load config: %w", err)
+	}
+	for _, key := range cfg.UnknownKeys {
+		fmt.Fprintf(os.Stderr, "warning: unknown config key %q\n", key)
 	}
 
 	db := dbPath
