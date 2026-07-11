@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/charmbracelet/x/ansi"
 	"strings"
 	"testing"
 )
@@ -83,4 +84,36 @@ func TestDistributeWidths_evenDistribution(t *testing.T) {
 	if widths[0]+widths[1]+widths[2]+2 != 100 {
 		t.Errorf("widths should sum to 100 (with spacing): %v", widths)
 	}
+}
+
+func TestPadOrTruncate_unicode(t *testing.T) {
+	// Multibyte runes must not be split and output must occupy exactly
+	// the requested display width.
+	got := padOrTruncate("héllo wörld", 8)
+	if w := displayWidth(got); w != 8 {
+		t.Errorf("truncated width: got %d, want 8 (%q)", w, got)
+	}
+	if !strings.HasSuffix(got, "…") {
+		t.Errorf("expected ellipsis suffix, got %q", got)
+	}
+
+	// Wide (CJK) runes count as two cells.
+	got = padOrTruncate("日本語テスト", 7)
+	if w := displayWidth(got); w > 7 {
+		t.Errorf("CJK truncation overflows: width %d > 7 (%q)", w, got)
+	}
+
+	// Padding is width-based too.
+	got = padOrTruncate("héllo", 10)
+	if w := displayWidth(got); w != 10 {
+		t.Errorf("padded width: got %d, want 10 (%q)", w, got)
+	}
+
+	if got := padOrTruncate("anything", 0); got != "" {
+		t.Errorf("zero width should return empty, got %q", got)
+	}
+}
+
+func displayWidth(s string) int {
+	return ansi.StringWidth(s)
 }

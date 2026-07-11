@@ -83,4 +83,3 @@ changelog:
       - "^docs:"
       - "^test:"
       - "^chore:"
-      - "^fix:"

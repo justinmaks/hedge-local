@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/charmbracelet/x/ansi"
 	"sort"
 	"strconv"
 	"strings"
@@ -209,8 +210,14 @@ func (t *Table) distributeWidths(totalWidth int) []int {
 }
 
 func padOrTruncate(s string, width int) string {
-	if len(s) > width {
-		return s[:width-1] + "…"
+	if width <= 0 {
+		return ""
 	}
-	return s + strings.Repeat(" ", width-len(s))
+	// Measure display cells, not bytes: multibyte and wide runes would
+	// otherwise be split mid-character or misalign the column grid.
+	if w := ansi.StringWidth(s); w > width {
+		return ansi.Truncate(s, width, "…")
+	} else {
+		return s + strings.Repeat(" ", width-w)
+	}
 }
