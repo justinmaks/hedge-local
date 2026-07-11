@@ -14,13 +14,13 @@ import (
 func TestCostView_hintsChangeByMode(t *testing.T) {
 	v := &CostView{mode: costModeDaily}
 	hints := v.Hints()
-	if !containsStr(hints, "Enter") {
+	if !strings.Contains(hints, "Enter") {
 		t.Errorf("daily hints should mention Enter: %s", hints)
 	}
 
 	v.mode = costModeHourly
 	hints = v.Hints()
-	if !containsStr(hints, "esc") {
+	if !strings.Contains(hints, "esc") {
 		t.Errorf("hourly hints should mention Esc: %s", hints)
 	}
 }
@@ -44,13 +44,13 @@ func TestCostView_dailyRender_showsBars(t *testing.T) {
 		cursor: 1,
 	}
 	out := v.Render(120, 30, tui.NewTheme())
-	if !contains(out, "07-06") {
+	if !strings.Contains(out, "07-06") {
 		t.Errorf("missing date 07-06:\n%s", out)
 	}
-	if !contains(out, "07-07") {
+	if !strings.Contains(out, "07-07") {
 		t.Errorf("missing date 07-07:\n%s", out)
 	}
-	if !contains(out, "$3.20") {
+	if !strings.Contains(out, "$3.20") {
 		t.Errorf("missing cost $3.20:\n%s", out)
 	}
 }
@@ -158,19 +158,6 @@ func TestCostView_hourlyLoadMsg_updatesHourlyData(t *testing.T) {
 	if cv.hourly[1].Cost != 2.00 {
 		t.Errorf("expected $2.00 at 10:00, got $%.2f", cv.hourly[1].Cost)
 	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsStr(s, substr))
-}
-
-func containsStr(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
 
 func TestCostView_dailyRender_respectsHeight(t *testing.T) {

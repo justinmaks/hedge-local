@@ -232,4 +232,3 @@ func firstAttrInt(attrs []*commonpb.KeyValue, keys ...string) int {
 	}
 	return 0
 }
-

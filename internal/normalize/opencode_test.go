@@ -46,7 +46,6 @@ func makeOpenCodeLogReq(records ...*logspb.LogRecord) *collogspb.ExportLogsServi
 	}
 }
 
-
 func TestOpenCodeNormalizeLogs_apiRequestBecomesLLMCall(t *testing.T) {
 	n := &OpenCodeNormalizer{}
 	req := makeOpenCodeLogReq(&logspb.LogRecord{
