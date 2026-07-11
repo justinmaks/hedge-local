@@ -6,21 +6,22 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/justinmaks/hedge-local/internal/store"
 	"github.com/justinmaks/hedge-local/internal/tui"
 	"github.com/justinmaks/hedge-local/internal/tui/queries"
 )
 
 type ToolsView struct {
-	service    *queries.Service
-	stats      []queries.ToolStats
-	table      *tui.Table
+	service     *queries.Service
+	stats       []queries.ToolStats
+	table       *tui.Table
 	detailTable *tui.Table
-	focused    bool
-	selected   string
-	detailRows [][]string
-	from       time.Time
-	to         time.Time
-	err        error
+	focused     bool
+	selected    string
+	detailRows  [][]string
+	from        time.Time
+	to          time.Time
+	err         error
 }
 
 func NewToolsView(service *queries.Service) *ToolsView {
@@ -133,7 +134,7 @@ func (v *ToolsView) loadDetail(toolName string) {
 		`SELECT started_at, agent, duration_ms, success, COALESCE(error_message, '')
 		 FROM tool_calls WHERE tool_name = ? AND started_at BETWEEN ? AND ?
 		 ORDER BY started_at DESC LIMIT 20`,
-		toolName, v.from, v.to,
+		toolName, store.FormatTime(v.from), store.FormatTime(v.to),
 	)
 	if err != nil {
 		v.detailRows = [][]string{{"Error: " + err.Error()}}
@@ -152,7 +153,7 @@ func (v *ToolsView) loadDetail(toolName string) {
 			continue
 		}
 		v.detailRows = append(v.detailRows, []string{
-			startedAt.Format("01-02 15:04:05"),
+			startedAt.Local().Format("01-02 15:04:05"),
 			agent,
 			fmt.Sprintf("%dms", dur),
 			fmt.Sprintf("%v", success),
