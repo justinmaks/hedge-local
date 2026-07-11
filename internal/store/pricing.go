@@ -97,7 +97,7 @@ func (s *Store) ImportPricingJSON(data []byte, source string) error {
 		_, err = tx.Exec(
 			`INSERT OR IGNORE INTO pricing (provider, model, input_per_1m, output_per_1m, cache_read_per_1m, cache_write_per_1m, effective_from, source)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			e.Provider, e.Model, e.InputPer1M, e.OutputPer1M, e.CacheReadPer1M, e.CacheWritePer1M, e.EffectiveFrom, source,
+			e.Provider, e.Model, e.InputPer1M, e.OutputPer1M, e.CacheReadPer1M, e.CacheWritePer1M, FormatTime(e.EffectiveFrom), source,
 		)
 		if err != nil {
 			return fmt.Errorf("insert pricing %s: %w", pricingEntryContext(i, e.Provider, e.Model), err)
@@ -156,13 +156,13 @@ func (s *Store) PricingFor(provider, model string, at time.Time) (PricingRow, er
 		 WHERE provider = ? AND model = ? AND effective_from <= ?
 		 ORDER BY effective_from DESC
 		 LIMIT 1`,
-		provider, model, at,
+		provider, model, FormatTime(at),
 	).Scan(
 		&row.ID, &row.Provider, &row.Model, &row.InputPer1M, &row.OutputPer1M,
 		&row.CacheReadPer1M, &row.CacheWritePer1M, &row.EffectiveFrom, &row.EffectiveTo, &row.Source,
 	)
 	if err != nil {
-		return row, fmt.Errorf("pricing for %s/%s at %s: %w", provider, model, at, err)
+		return row, fmt.Errorf("pricing for %s/%s at %s: %w", provider, model, FormatTime(at), err)
 	}
 	return row, nil
 }

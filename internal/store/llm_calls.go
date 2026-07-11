@@ -43,7 +43,7 @@ func (s *Store) LLMCallInsert(p LLMCallParams) (int64, error) {
 		  cache_read_tokens, cache_write_tokens, reasoning_tokens,
 		  cost_usd, ttft_ms, stop_reason)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		p.SessionID, p.TraceID, p.SpanID, p.ParentSpanID, p.StartedAt, p.DurationMs,
+		p.SessionID, p.TraceID, p.SpanID, p.ParentSpanID, FormatTime(p.StartedAt), p.DurationMs,
 		p.Agent, p.Model, p.Provider, p.InputTokens, p.OutputTokens,
 		p.CacheReadTokens, p.CacheWriteTokens, p.ReasoningTokens,
 		p.CostUSD, p.TTFTMs, p.StopReason,

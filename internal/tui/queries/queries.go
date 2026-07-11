@@ -17,6 +17,13 @@ func NewService(s *store.Store) *Service {
 	return &Service{store: s}
 }
 
+// ts renders a time for binding against timestamp columns. Timestamps are
+// stored as store.TimeLayout strings and compared lexically, so every bound
+// range endpoint must use the same format.
+func ts(t time.Time) string {
+	return store.FormatTime(t)
+}
+
 func (s *Service) Store() *store.Store {
 	return s.store
 }
@@ -67,7 +74,7 @@ func (s *Service) OverviewSummary(from, to time.Time) (OverviewStats, error) {
 	err := db.QueryRow(
 		`SELECT COALESCE(SUM(total_cost_usd), 0), COALESCE(SUM(total_input_tokens + total_output_tokens), 0), COUNT(*)
 		 FROM sessions WHERE started_at BETWEEN ? AND ?`,
-		from, to,
+		ts(from), ts(to),
 	).Scan(&stats.TodayCost, &stats.TodayTokens, &stats.TodaySessions)
 	if err != nil {
 		return stats, fmt.Errorf("overview summary: %w", err)
@@ -78,12 +85,12 @@ func (s *Service) OverviewSummary(from, to time.Time) (OverviewStats, error) {
 	var prevWeekCost float64
 	_ = db.QueryRow(
 		`SELECT COALESCE(SUM(total_cost_usd), 0) FROM sessions WHERE started_at BETWEEN ? AND ?`,
-		twoWeeksAgo, weekAgo,
+		ts(twoWeeksAgo), ts(weekAgo),
 	).Scan(&prevWeekCost)
 
 	_ = db.QueryRow(
 		`SELECT COALESCE(SUM(total_cost_usd), 0) FROM sessions WHERE started_at BETWEEN ? AND ?`,
-		weekAgo, to,
+		ts(weekAgo), ts(to),
 	).Scan(&stats.WeekCost)
 
 	if prevWeekCost > 0 {
@@ -93,7 +100,7 @@ func (s *Service) OverviewSummary(from, to time.Time) (OverviewStats, error) {
 	rows, err := db.Query(
 		`SELECT agent, COALESCE(SUM(total_cost_usd), 0), COALESCE(SUM(total_input_tokens + total_output_tokens), 0)
 		 FROM sessions WHERE started_at BETWEEN ? AND ? GROUP BY agent ORDER BY SUM(total_cost_usd) DESC`,
-		from, to,
+		ts(from), ts(to),
 	)
 	if err != nil {
 		return stats, fmt.Errorf("overview by agent: %w", err)
@@ -129,7 +136,7 @@ func (s *Service) SpanCountInRange(from, to time.Time) (int, error) {
 		 (SELECT COUNT(*) FROM llm_calls WHERE started_at BETWEEN ? AND ?) +
 		 (SELECT COUNT(*) FROM tool_calls WHERE started_at BETWEEN ? AND ?) +
 		 (SELECT COUNT(*) FROM events WHERE timestamp BETWEEN ? AND ?)`,
-		from, to, from, to, from, to,
+		ts(from), ts(to), ts(from), ts(to), ts(from), ts(to),
 	)
 	if err := row.Scan(&total); err != nil {
 		return 0, fmt.Errorf("span count: %w", err)
@@ -140,18 +147,20 @@ func (s *Service) SpanCountInRange(from, to time.Time) (int, error) {
 func (s *Service) CostTrend(from, to time.Time, granularity string) ([]CostPoint, error) {
 	db := s.store.DB()
 	var periodExpr, parseFmt string
+	// Timestamps are stored UTC; group in the viewer's local day/hour so a
+	// late-evening session lands on the day the user experienced it.
 	if granularity == "hourly" {
-		periodExpr = "substr(started_at, 1, 10) || ' ' || substr(started_at, 12, 2) || ':00'"
+		periodExpr = "strftime('%Y-%m-%d %H:00', started_at, 'localtime')"
 		parseFmt = "2006-01-02 15:00"
 	} else {
-		periodExpr = "substr(started_at, 1, 10)"
+		periodExpr = "strftime('%Y-%m-%d', started_at, 'localtime')"
 		parseFmt = "2006-01-02"
 	}
 	rows, err := db.Query(
 		`SELECT `+periodExpr+` as period, COALESCE(SUM(total_cost_usd), 0)
 		 FROM sessions WHERE started_at BETWEEN ? AND ?
 		 GROUP BY period ORDER BY period`,
-		from, to,
+		ts(from), ts(to),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cost trend: %w", err)
@@ -197,7 +206,7 @@ func (s *Service) CostByDimension(from, to time.Time, dim string) ([]CostBreakdo
 	var totalCost float64
 	_ = db.QueryRow(
 		`SELECT COALESCE(SUM(total_cost_usd), 0) FROM sessions WHERE started_at BETWEEN ? AND ?`,
-		from, to,
+		ts(from), ts(to),
 	).Scan(&totalCost)
 
 	// GROUP BY must repeat the qualified column: a bare "name" would
@@ -213,7 +222,7 @@ func (s *Service) CostByDimension(from, to time.Time, dim string) ([]CostBreakdo
 		 GROUP BY %s ORDER BY cost DESC`,
 		groupCol, groupCol,
 	)
-	rows, err := db.Query(query, from, to)
+	rows, err := db.Query(query, ts(from), ts(to))
 	if err != nil {
 		return nil, fmt.Errorf("cost by dimension: %w", err)
 	}
@@ -246,7 +255,7 @@ func (s *Service) costByModel(from, to time.Time) ([]CostBreakdown, error) {
 		`SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls lc
 		 JOIN sessions s ON lc.session_id = s.id
 		 WHERE s.started_at BETWEEN ? AND ?`,
-		from, to,
+		ts(from), ts(to),
 	).Scan(&totalCost)
 
 	rows, err := db.Query(
@@ -257,7 +266,7 @@ func (s *Service) costByModel(from, to time.Time) ([]CostBreakdown, error) {
 		 JOIN sessions s ON lc.session_id = s.id
 		 WHERE s.started_at BETWEEN ? AND ?
 		 GROUP BY lc.model ORDER BY cost DESC`,
-		from, to,
+		ts(from), ts(to),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("cost by model: %w", err)
@@ -304,7 +313,7 @@ func (s *Service) recentSessions(projectPath string, limit int, from, to time.Ti
 				 s.total_input_tokens + s.total_output_tokens, s.tool_call_count, p.path
 				 FROM sessions s LEFT JOIN projects p ON s.project_id = p.id
 				 WHERE p.path = ? AND s.started_at BETWEEN ? AND ? ORDER BY s.started_at DESC LIMIT ?`,
-				projectPath, from, to, limit,
+				projectPath, ts(from), ts(to), limit,
 			)
 		} else {
 			rows, err = db.Query(
@@ -322,7 +331,7 @@ func (s *Service) recentSessions(projectPath string, limit int, from, to time.Ti
 				 s.total_input_tokens + s.total_output_tokens, s.tool_call_count, p.path
 				 FROM sessions s LEFT JOIN projects p ON s.project_id = p.id
 				 WHERE s.started_at BETWEEN ? AND ? ORDER BY s.started_at DESC LIMIT ?`,
-				from, to, limit,
+				ts(from), ts(to), limit,
 			)
 		} else {
 			rows, err = db.Query(
@@ -345,6 +354,7 @@ func (s *Service) recentSessions(projectPath string, limit int, from, to time.Ti
 		if err := rows.Scan(&r.ExternalID, &r.Agent, &r.StartedAt, &r.Cost, &r.Tokens, &r.ToolCount, &projectPath); err != nil {
 			return nil, err
 		}
+		r.StartedAt = r.StartedAt.Local()
 		r.ProjectPath = projectPath.String
 		result = append(result, r)
 	}
@@ -373,7 +383,7 @@ func (s *Service) ToolSummary(from, to time.Time) ([]ToolStats, error) {
 		 COALESCE((SELECT error_message FROM tool_calls tc2 WHERE tc2.tool_name = tool_calls.tool_name AND tc2.started_at BETWEEN ? AND ? AND error_message != '' ORDER BY tc2.started_at DESC LIMIT 1), '') as top_error
 		 FROM tool_calls WHERE started_at BETWEEN ? AND ?
 		 GROUP BY tool_name ORDER BY calls DESC`,
-		from, to, from, to,
+		ts(from), ts(to), ts(from), ts(to),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("tool summary: %w", err)
@@ -416,7 +426,7 @@ func (s *Service) ModelSummary(from, to time.Time) ([]ModelStats, error) {
 		 COALESCE(SUM(cost_usd), 0), COALESCE(AVG(ttft_ms), 0)
 		 FROM llm_calls WHERE started_at BETWEEN ? AND ?
 		 GROUP BY agent, model, provider ORDER BY COALESCE(SUM(cost_usd), 0) DESC`,
-		from, to,
+		ts(from), ts(to),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("model summary: %w", err)
@@ -460,7 +470,7 @@ func (s *Service) ProjectSummary(from, to time.Time) ([]ProjectStats, error) {
 		 FROM projects p LEFT JOIN sessions s ON s.project_id = p.id
 		 WHERE s.started_at IS NULL OR s.started_at BETWEEN ? AND ?
 		 GROUP BY p.id ORDER BY COALESCE(SUM(s.total_cost_usd), 0) DESC`,
-		from, to,
+		ts(from), ts(to),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("project summary: %w", err)
@@ -533,6 +543,7 @@ func (s *Service) RecentSpansInRange(from, to time.Time, limit int, filter, agen
 		if err := rows.Scan(&r.Timestamp, &r.Agent, &r.SpanType, &r.Detail, &r.Tokens, &r.Cost); err != nil {
 			return nil, err
 		}
+		r.Timestamp = r.Timestamp.Local()
 		result = append(result, r)
 	}
 	if err := rows.Err(); err != nil {
@@ -541,13 +552,11 @@ func (s *Service) RecentSpansInRange(from, to time.Time, limit int, filter, agen
 	return result, nil
 }
 
-// parseStoredTime parses a timestamp as stored by the modernc SQLite driver.
-// The driver persists time.Time via its String() representation, e.g.
-// "2006-01-02 15:04:05.999999999 -0700 MST" optionally followed by a monotonic
-// clock reading (" m=..."), which standard layouts cannot parse. This is only
-// needed when reading aggregate results (e.g. MAX(started_at)) as raw strings;
-// direct column scans are converted by the driver. RFC3339 is also accepted as
-// a fallback.
+// parseStoredTime parses a stored timestamp string. Only needed when reading
+// aggregate results (e.g. MAX(started_at)) as raw strings; direct column
+// scans are converted by the driver. Delegates to store.ParseTime, which
+// handles the canonical layout plus legacy driver formats (trimming any
+// monotonic clock suffix first).
 func parseStoredTime(s string) (time.Time, bool) {
 	if s == "" {
 		return time.Time{}, false
@@ -555,15 +564,8 @@ func parseStoredTime(s string) (time.Time, bool) {
 	if i := strings.Index(s, " m="); i != -1 {
 		s = s[:i]
 	}
-	for _, layout := range []string{
-		"2006-01-02 15:04:05.999999999 -0700 MST",
-		"2006-01-02 15:04:05 -0700 MST",
-		time.RFC3339Nano,
-		time.RFC3339,
-	} {
-		if t, err := time.Parse(layout, s); err == nil {
-			return t, true
-		}
+	if t, ok := store.ParseTime(s); ok {
+		return t.Local(), true
 	}
 	return time.Time{}, false
 }
@@ -585,7 +587,7 @@ func spanFilterClause(hasRange, hasAgent bool, timeColumn, agentColumn string) s
 func spanQueryArgs(hasRange, hasAgent bool, from, to time.Time, agent, filter string, limit int) []any {
 	appendArgs := func(dst []any) []any {
 		if hasRange {
-			dst = append(dst, from, to)
+			dst = append(dst, ts(from), ts(to))
 		}
 		if hasAgent {
 			dst = append(dst, agent)
@@ -622,7 +624,7 @@ func (s *Service) ExportSessions(from, to time.Time) ([]SessionExportRow, error)
 		 s.total_cost_usd, s.total_input_tokens, s.total_output_tokens, s.tool_call_count, s.message_count
 		 FROM sessions s LEFT JOIN projects p ON s.project_id = p.id
 		 WHERE s.started_at BETWEEN ? AND ? ORDER BY s.started_at`,
-		from, to,
+		ts(from), ts(to),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("export sessions: %w", err)
@@ -637,11 +639,13 @@ func (s *Service) ExportSessions(from, to time.Time) ([]SessionExportRow, error)
 			&r.TotalCostUSD, &r.InputTokens, &r.OutputTokens, &r.ToolCallCount, &r.MessageCount); err != nil {
 			return nil, err
 		}
+		r.StartedAt = r.StartedAt.Local()
 		if projectPath.Valid {
 			r.ProjectPath = projectPath.String
 		}
 		if endedAt.Valid {
-			r.EndedAt = &endedAt.Time
+			local := endedAt.Time.Local()
+			r.EndedAt = &local
 		}
 		result = append(result, r)
 	}
@@ -671,7 +675,7 @@ func (s *Service) ExportLLMCalls(from, to time.Time) ([]LLMCallExportRow, error)
 		`SELECT started_at, agent, model, provider, input_tokens, output_tokens,
 		 cache_read_tokens, cache_write_tokens, cost_usd, duration_ms, stop_reason
 		 FROM llm_calls WHERE started_at BETWEEN ? AND ? ORDER BY started_at`,
-		from, to,
+		ts(from), ts(to),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("export llm calls: %w", err)
@@ -685,6 +689,7 @@ func (s *Service) ExportLLMCalls(from, to time.Time) ([]LLMCallExportRow, error)
 			&r.CacheReadTokens, &r.CacheWriteTokens, &r.CostUSD, &r.DurationMs, &stopReason); err != nil {
 			return nil, err
 		}
+		r.StartedAt = r.StartedAt.Local()
 		r.Model = model.String
 		r.Provider = provider.String
 		r.StopReason = stopReason.String
@@ -710,7 +715,7 @@ func (s *Service) ExportToolCalls(from, to time.Time) ([]ToolCallExportRow, erro
 	rows, err := db.Query(
 		`SELECT started_at, agent, tool_name, success, duration_ms, error_message
 		 FROM tool_calls WHERE started_at BETWEEN ? AND ? ORDER BY started_at`,
-		from, to,
+		ts(from), ts(to),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("export tool calls: %w", err)
@@ -723,6 +728,7 @@ func (s *Service) ExportToolCalls(from, to time.Time) ([]ToolCallExportRow, erro
 		if err := rows.Scan(&r.StartedAt, &r.Agent, &r.ToolName, &r.Success, &r.DurationMs, &errMsg); err != nil {
 			return nil, err
 		}
+		r.StartedAt = r.StartedAt.Local()
 		if errMsg.Valid {
 			r.ErrorMessage = errMsg.String
 		}
@@ -746,7 +752,7 @@ func (s *Service) ExportEvents(from, to time.Time) ([]EventExportRow, error) {
 	rows, err := db.Query(
 		`SELECT timestamp, agent, event_name, payload
 		 FROM events WHERE timestamp BETWEEN ? AND ? ORDER BY timestamp`,
-		from, to,
+		ts(from), ts(to),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("export events: %w", err)
@@ -759,6 +765,7 @@ func (s *Service) ExportEvents(from, to time.Time) ([]EventExportRow, error) {
 		if err := rows.Scan(&r.Timestamp, &r.Agent, &r.EventName, &payload); err != nil {
 			return nil, err
 		}
+		r.Timestamp = r.Timestamp.Local()
 		if payload.Valid {
 			r.Payload = payload.String
 		}

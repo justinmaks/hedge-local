@@ -10,7 +10,7 @@ func (s *Store) SessionUpsert(externalID, agent string, projectID int64, started
 		`INSERT INTO sessions (external_id, agent, project_id, started_at, app_version)
 		 VALUES (?, ?, ?, ?, ?)
 		 ON CONFLICT(external_id) DO NOTHING`,
-		externalID, agent, projectID, startedAt, appVersion,
+		externalID, agent, projectID, FormatTime(startedAt), appVersion,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("upsert session: %w", err)
@@ -24,7 +24,7 @@ func (s *Store) SessionUpsert(externalID, agent string, projectID int64, started
 }
 
 func (s *Store) SessionSetEnded(id int64, endedAt time.Time) error {
-	_, err := s.db.Exec(`UPDATE sessions SET ended_at = ? WHERE id = ?`, endedAt, id)
+	_, err := s.db.Exec(`UPDATE sessions SET ended_at = ? WHERE id = ?`, FormatTime(endedAt), id)
 	return err
 }
 

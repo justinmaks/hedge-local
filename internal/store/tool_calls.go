@@ -45,7 +45,7 @@ func (s *Store) ToolCallInsert(p ToolCallParams) (int64, error) {
 		 (session_id, llm_call_id, trace_id, span_id, started_at, duration_ms,
 		  agent, tool_name, success, error_message, input_summary, output_summary)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		p.SessionID, llmCallID, p.TraceID, p.SpanID, p.StartedAt, p.DurationMs,
+		p.SessionID, llmCallID, p.TraceID, p.SpanID, FormatTime(p.StartedAt), p.DurationMs,
 		p.Agent, p.ToolName, successInt, p.ErrorMessage, p.InputSummary, p.OutputSummary,
 	)
 	if err != nil {

@@ -40,8 +40,9 @@ func TestSessionSetEnded(t *testing.T) {
 	}
 	var got time.Time
 	s.db.QueryRow(`SELECT ended_at FROM sessions WHERE id = ?`, id).Scan(&got)
-	if !got.Equal(ended) {
-		t.Errorf("ended_at: got %v, want %v", got, ended)
+	// Storage keeps millisecond precision.
+	if diff := got.Sub(ended); diff > time.Millisecond || diff < -time.Millisecond {
+		t.Errorf("ended_at: got %v, want %v (within 1ms)", got, ended)
 	}
 }
 

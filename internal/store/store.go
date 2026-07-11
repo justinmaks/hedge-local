@@ -32,6 +32,10 @@ func New(path string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
+	if err := s.normalizeTimestamps(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("normalize timestamps: %w", err)
+	}
 	// The database can contain prompt/log content with --with-logs, so keep it
 	// owner-only. WAL/SHM sidecars are created by migrate's writes.
 	for _, suffix := range []string{"", "-wal", "-shm"} {
