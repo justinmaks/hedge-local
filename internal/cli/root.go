@@ -13,8 +13,6 @@ import (
 var (
 	cfgFile string
 	dbPath  string
-	verbose bool
-	quiet   bool
 )
 
 var rootCmd = &cobra.Command{
@@ -29,8 +27,6 @@ var Execute = rootCmd.Execute
 func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default ~/.hedge/config.toml)")
 	rootCmd.PersistentFlags().StringVar(&dbPath, "db", "", "database path (default ~/.hedge/hedge.db)")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "verbose logging")
-	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "only show errors")
 }
 
 func runRoot(cmd *cobra.Command, args []string) error {
