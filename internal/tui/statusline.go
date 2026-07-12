@@ -30,7 +30,13 @@ func RenderStatusLine(info StatusInfo, theme *Theme) string {
 	}
 	keyLabel := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("220")).Render("KEYS")
 	keyHints := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("117")).Render(hints)
-	return fmt.Sprintf("%s %d spans today · %s %s", status, info.SpanCount, keyLabel, keyHints)
+	nudge := ""
+	if !info.Collecting {
+		// Exporters do not buffer: no collector means telemetry is lost.
+		nudge = lipgloss.NewStyle().Foreground(lipgloss.Color("241")).
+			Render(" · no collector (hcli service install)")
+	}
+	return fmt.Sprintf("%s %d spans today%s · %s %s", status, info.SpanCount, nudge, keyLabel, keyHints)
 }
 
 func StatusLineHeight() int {

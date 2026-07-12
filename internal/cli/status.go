@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/justinmaks/hedge-local/internal/collect"
 	"github.com/justinmaks/hedge-local/internal/store"
 	"github.com/spf13/cobra"
 )
@@ -21,12 +22,20 @@ func init() {
 }
 
 func runStatus(cmd *cobra.Command, args []string) error {
-	_, db, err := loadCLIConfigAndDB()
+	cfg, db, err := loadCLIConfigAndDB()
 	if err != nil {
 		return err
 	}
-	pidPath := defaultPIDPath()
-	printStatus(cmd.OutOrStdout(), pidPath, db)
+	out := cmd.OutOrStdout()
+	// The health probe is the truth about collection: it sees the daemon,
+	// a service-managed collector, and embedded receivers alike.
+	if collect.HealthCheck(cfg.OTLPPort, 300*time.Millisecond) {
+		fmt.Fprintf(out, "collector: listening on 127.0.0.1:%d\n", cfg.OTLPPort)
+	} else {
+		fmt.Fprintf(out, "collector: not running (telemetry is being dropped)\n")
+		fmt.Fprintf(out, "  start one: 'hcli service install' (always-on) or 'hcli collect -d'\n")
+	}
+	printStatus(out, defaultPIDPath(), db)
 	return nil
 }
 

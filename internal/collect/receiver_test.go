@@ -213,3 +213,13 @@ func TestReceiver_garbageProtobufCountsMalformed(t *testing.T) {
 		t.Errorf("malformed count: got %d, want 1", r.MalformedCount())
 	}
 }
+
+func TestHealthCheck(t *testing.T) {
+	r, _ := newConformanceReceiver(t)
+	if !HealthCheck(r.Port(), time.Second) {
+		t.Error("running receiver should answer health check")
+	}
+	if HealthCheck(1, 200*time.Millisecond) {
+		t.Error("port 1 should not answer health check")
+	}
+}

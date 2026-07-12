@@ -37,7 +37,7 @@ func registerDefaultViews() {
 }
 
 func runTUI(cmd *cobra.Command, args []string) error {
-	_, db, err := loadCLIConfigAndDB()
+	cfg, db, err := loadCLIConfigAndDB()
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,8 @@ func runTUI(cmd *cobra.Command, args []string) error {
 	}
 
 	svc := queries.NewService(s)
-	return runTUIApp(svc, daemonRunning())
+	probe := collectorProbe(cfg.OTLPPort)
+	return runTUIApp(svc, probe(), probe)
 }
 
 func loadCLIConfigAndDB() (*config.Config, string, error) {
@@ -83,9 +84,4 @@ func loadCLIConfigAndDB() (*config.Config, string, error) {
 	}
 
 	return cfg, db, nil
-}
-
-func daemonRunning() bool {
-	pid, err := readPIDFile(defaultPIDPath())
-	return err == nil && processAlive(pid)
 }

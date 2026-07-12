@@ -136,12 +136,25 @@ hcli
 
 Starts the OTLP receiver and TUI together in one process. Press `q` to quit.
 
-### Daemon mode
+### Always-on service (recommended)
+
+```sh
+hcli service install     # run the collector as an OS-managed user service
+hcli service status      # is it installed and listening?
+hcli service uninstall   # stop and remove it
+```
+
+OTLP exporters don't buffer: whenever no collector is listening, that
+telemetry is lost. The service (systemd --user on Linux, launchd on macOS)
+keeps the collector running across crashes, logouts, and reboots, so your
+cost history has no holes. Open `hcli tui` whenever you want to look.
+
+### Daemon mode (portable fallback)
 
 ```sh
 hcli collect -d       # start receiver in background
 hcli tui              # open TUI (reads from DB)
-hcli status           # check daemon health
+hcli status           # collector + daemon health
 hcli stop             # stop daemon
 hcli logs             # tail daemon logs
 hcli logs -f          # follow daemon logs

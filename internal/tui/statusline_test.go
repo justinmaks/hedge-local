@@ -51,3 +51,14 @@ func stripANSI(s string) string {
 	}
 	return b.String()
 }
+
+func TestRenderStatusLineNudgesWhenNotCollecting(t *testing.T) {
+	plain := stripANSI(RenderStatusLine(StatusInfo{Collecting: false, SpanCount: 0}, NewTheme()))
+	if !strings.Contains(plain, "no collector") {
+		t.Fatalf("read-only mode should nudge about missing collector: %q", plain)
+	}
+	plain = stripANSI(RenderStatusLine(StatusInfo{Collecting: true, SpanCount: 0}, NewTheme()))
+	if strings.Contains(plain, "no collector") {
+		t.Fatalf("collecting mode should not nudge: %q", plain)
+	}
+}

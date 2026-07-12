@@ -235,3 +235,38 @@ func TestAppDateFilterPresetKeysWorkInCustomMode(t *testing.T) {
 func keyRunes(s string) tea.KeyMsg {
 	return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(s)}
 }
+
+func TestCollectorProbeUpdatesBadge(t *testing.T) {
+	app := NewApp(nil, false)
+	alive := false
+	app.SetCollectorProbe(func() bool { return alive })
+
+	// First probe: collector down.
+	cmd := app.probeCmd()
+	if cmd == nil {
+		t.Fatal("first probeCmd should fire")
+	}
+	model, _ := app.Update(cmd())
+	app = model.(*App)
+	if app.collecting {
+		t.Fatal("badge should stay not-collecting while probe is false")
+	}
+
+	// Throttled: an immediate second probe is skipped.
+	if app.probeCmd() != nil {
+		t.Fatal("probe within 2s should be throttled")
+	}
+
+	// Collector comes up; after the throttle window the badge flips.
+	alive = true
+	app.lastProbe = time.Now().Add(-3 * time.Second)
+	cmd = app.probeCmd()
+	if cmd == nil {
+		t.Fatal("probe after throttle window should fire")
+	}
+	model, _ = app.Update(cmd())
+	app = model.(*App)
+	if !app.collecting {
+		t.Fatal("badge should flip to collecting when the probe succeeds")
+	}
+}

@@ -61,8 +61,27 @@ func processAlive(pid int) bool {
 	if err != nil {
 		return false
 	}
-	err = proc.Signal(syscall.Signal(0))
-	return err == nil
+	if err := proc.Signal(syscall.Signal(0)); err != nil {
+		return false
+	}
+	// A recycled PID can belong to an unrelated process. Where the kernel
+	// exposes the command line (Linux), require it to look like an hcli
+	// process: either the literal binary name or whatever this executable
+	// is called (covers renamed binaries and test harnesses checking
+	// their own PID).
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/cmdline", pid))
+	if err != nil {
+		return true
+	}
+	cmdline := string(data)
+	if strings.Contains(cmdline, "hcli") {
+		return true
+	}
+	self, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(cmdline, filepath.Base(self))
 }
 
 func daemonChildArgs(args []string) []string {
