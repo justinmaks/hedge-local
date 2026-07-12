@@ -23,7 +23,9 @@ func TestRunTUIUsesConfiguredDBAndSeedsPricing(t *testing.T) {
 	t.Setenv("HOME", filepath.Join(dir, "home"))
 	db := filepath.Join(dir, "custom.db")
 	cfgPath := filepath.Join(dir, "config.toml")
-	if err := os.WriteFile(cfgPath, []byte("db_path = \""+db+"\"\n"), 0o644); err != nil {
+	// Pin the probe to a dead port: the developer may have a real
+	// collector on 4318 while tests run.
+	if err := os.WriteFile(cfgPath, []byte("db_path = \""+db+"\"\notlp_port = 1\n"), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 

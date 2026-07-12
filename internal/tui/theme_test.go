@@ -60,3 +60,36 @@ func TestSparkline_stretchesSparseData(t *testing.T) {
 		t.Errorf("width: got %d, want 70", len([]rune(result)))
 	}
 }
+
+func TestWaveform_twoRowSplit(t *testing.T) {
+	// Low values stay in the bottom row; high values spill into the top.
+	values := []float64{1, 8, 16}
+	top, bottom := Waveform(values, 16, 3)
+	topR, bottomR := []rune(top), []rune(bottom)
+	if len(topR) != 3 || len(bottomR) != 3 {
+		t.Fatalf("rows must be exactly width: top=%d bottom=%d", len(topR), len(bottomR))
+	}
+	if topR[0] != ' ' || topR[1] != ' ' {
+		t.Errorf("low values should not reach the top row: %q", top)
+	}
+	if topR[2] == ' ' {
+		t.Errorf("max value should spill into the top row: %q", top)
+	}
+	if bottomR[2] != '█' {
+		t.Errorf("spilled value should saturate the bottom row: %q", bottom)
+	}
+	if bottomR[0] == ' ' {
+		t.Errorf("nonzero value must be visible in the bottom row: %q", bottom)
+	}
+}
+
+func TestWaveform_padsAndEmpty(t *testing.T) {
+	top, bottom := Waveform([]float64{5}, 10, 6)
+	if len([]rune(top)) != 6 || len([]rune(bottom)) != 6 {
+		t.Fatalf("short input must pad to width: %q / %q", top, bottom)
+	}
+	top, bottom = Waveform(nil, 0, 4)
+	if top != "    " || bottom != "    " {
+		t.Fatalf("empty input should render blank rows: %q / %q", top, bottom)
+	}
+}

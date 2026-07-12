@@ -381,8 +381,9 @@ Cost view:
   Esc        Back to daily
 
 Live view:
+  t          Toggle pulse/table
   p          Pause
-  c          Clear
+  c          Clear (table)
   f          Follow
 
 Export view:

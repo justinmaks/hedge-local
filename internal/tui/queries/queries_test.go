@@ -436,3 +436,108 @@ func TestExportSessions(t *testing.T) {
 		t.Fatalf("expected at least 1 row")
 	}
 }
+
+func TestLiveWindow_buckets(t *testing.T) {
+	s := seedTestStore(t)
+	now := time.Now()
+
+	// Two llm calls and two tool calls at known offsets inside a
+	// 10-bucket x 2s window (20s total).
+	insertLLM := func(span string, ago time.Duration, outTokens int) {
+		if _, err := s.LLMCallInsert(store.LLMCallParams{
+			SessionID: 1, SpanID: span, StartedAt: now.Add(-ago),
+			Agent: "claude_code", Model: "m", OutputTokens: outTokens,
+		}); err != nil {
+			t.Fatalf("llm insert: %v", err)
+		}
+	}
+	insertTool := func(span string, ago time.Duration, ok bool) {
+		if _, err := s.ToolCallInsert(store.ToolCallParams{
+			SessionID: 1, SpanID: span, StartedAt: now.Add(-ago),
+			Agent: "claude_code", ToolName: "bash", Success: ok,
+		}); err != nil {
+			t.Fatalf("tool insert: %v", err)
+		}
+	}
+	insertLLM("lw-1", 19*time.Second, 100) // oldest bucket
+	insertLLM("lw-2", 1*time.Second, 900)  // newest bucket (joins the seed row)
+	insertTool("lw-t1", 1*time.Second, true)
+	insertTool("lw-t2", 1500*time.Millisecond, false)
+
+	svc := NewService(s)
+	buckets, err := svc.LiveWindow(now, 10, 2*time.Second)
+	if err != nil {
+		t.Fatalf("LiveWindow: %v", err)
+	}
+	if len(buckets) != 10 {
+		t.Fatalf("bucket count: got %d, want 10", len(buckets))
+	}
+	if buckets[0].OutputTokens != 100 {
+		t.Errorf("oldest bucket tokens: got %d, want 100", buckets[0].OutputTokens)
+	}
+	last := buckets[9]
+	// 900 from lw-2 plus 500 from seedTestStore's baseline call at "now".
+	if last.OutputTokens != 1400 {
+		t.Errorf("newest bucket tokens: got %d, want 1400", last.OutputTokens)
+	}
+	if last.ToolCalls != 2 || last.ToolErrors != 1 {
+		t.Errorf("newest bucket tools: got calls=%d errors=%d, want 2/1", last.ToolCalls, last.ToolErrors)
+	}
+}
+
+func TestLiveStats_burnAndRhythm(t *testing.T) {
+	s := seedTestStore(t)
+	now := time.Now()
+
+	if _, err := s.LLMCallInsert(store.LLMCallParams{
+		SessionID: 1, SpanID: "ls-recent", StartedAt: now.Add(time.Second),
+		Agent: "claude_code", Model: "claude-sonnet-5", CostUSD: 0.50,
+		InputTokens: 1000, CacheReadTokens: 3000, OutputTokens: 100,
+	}); err != nil {
+		t.Fatalf("llm insert: %v", err)
+	}
+	if _, err := s.ToolCallInsert(store.ToolCallParams{
+		SessionID: 1, SpanID: "ls-tool", StartedAt: now.Add(-time.Minute),
+		Agent: "claude_code", ToolName: "Edit", DurationMs: 1200, Success: true,
+	}); err != nil {
+		t.Fatalf("tool insert: %v", err)
+	}
+
+	svc := NewService(s)
+	// Query from a clock slightly ahead of the newest row so it falls in
+	// the newest burn window deterministically.
+	st, err := svc.LiveStats(now.Add(2 * time.Second))
+	if err != nil {
+		t.Fatalf("LiveStats: %v", err)
+	}
+	// $0.50 in the newest 10-minute window scales to $3/hr (seed store
+	// adds a small cost too, so allow a little slack above).
+	if st.BurnPerHour < 3.0 || st.BurnPerHour > 3.5 {
+		t.Errorf("burn: got %v, want ~3.0/hr", st.BurnPerHour)
+	}
+	if len(st.BurnHistory) != 5 {
+		t.Fatalf("burn history: got %d windows, want 5", len(st.BurnHistory))
+	}
+	if st.LastModel != "claude-sonnet-5" {
+		t.Errorf("last model: got %q", st.LastModel)
+	}
+	if st.LastTool != "Edit" || !st.LastToolOK || st.LastToolMs != 1200 {
+		t.Errorf("last tool: got %q ok=%v ms=%d", st.LastTool, st.LastToolOK, st.LastToolMs)
+	}
+	if st.LastSpanAt.IsZero() {
+		t.Error("LastSpanAt should be set")
+	}
+	if time.Since(st.LastSpanAt) > 5*time.Minute {
+		t.Errorf("LastSpanAt too old: %v", st.LastSpanAt)
+	}
+	if st.SessionStart.IsZero() {
+		t.Error("SessionStart should be set")
+	}
+	// 3000 cache reads vs 1000 (mine) + 1000 (seed) input = 60%.
+	if st.CachePct < 55 || st.CachePct > 65 {
+		t.Errorf("cache pct: got %v, want ~60", st.CachePct)
+	}
+	if st.TodayCost <= 0 {
+		t.Errorf("today cost should be positive, got %v", st.TodayCost)
+	}
+}
