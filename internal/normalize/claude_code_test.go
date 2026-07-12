@@ -332,3 +332,101 @@ func TestNormalizeLogs_ignoresLogsWithoutSessionID(t *testing.T) {
 		t.Fatalf("expected no events without session id, got %#v", events)
 	}
 }
+
+func TestToolSpanSuccess_absentAttributeIsNotFailure(t *testing.T) {
+	n := &ClaudeCodeNormalizer{}
+	// The real claude_code.tool span shape: tool_name present, NO success
+	// attribute (success lives on the separate .tool.execution span).
+	mkSpan := func(attrs []*commonpb.KeyValue) *coltracepb.ExportTraceServiceRequest {
+		return &coltracepb.ExportTraceServiceRequest{
+			ResourceSpans: []*tracepb.ResourceSpans{{
+				ScopeSpans: []*tracepb.ScopeSpans{{Spans: []*tracepb.Span{{
+					Name:              "claude_code.tool",
+					SpanId:            []byte("span-ok"),
+					StartTimeUnixNano: uint64(time.Now().UnixNano()),
+					EndTimeUnixNano:   uint64(time.Now().UnixNano()),
+					Attributes:        attrs,
+				}}}},
+			}},
+		}
+	}
+	strAttr := func(k, v string) *commonpb.KeyValue {
+		return &commonpb.KeyValue{Key: k, Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: v}}}
+	}
+
+	events, err := n.NormalizeTraces(mkSpan([]*commonpb.KeyValue{
+		strAttr("session.id", "s1"), strAttr("tool_name", "Bash"),
+	}))
+	if err != nil || len(events) != 1 {
+		t.Fatalf("normalize: %v (%d events)", err, len(events))
+	}
+	if !events[0].ToolCall.Success {
+		t.Error("no success attr and no error must mean success, not failure")
+	}
+
+	events, _ = n.NormalizeTraces(mkSpan([]*commonpb.KeyValue{
+		strAttr("session.id", "s1"), strAttr("tool_name", "Bash"), strAttr("error", "exit status 1"),
+	}))
+	if events[0].ToolCall.Success {
+		t.Error("an error attribute must mean failure")
+	}
+
+	// String-typed success from older exporters.
+	events, _ = n.NormalizeTraces(mkSpan([]*commonpb.KeyValue{
+		strAttr("session.id", "s1"), strAttr("tool_name", "Bash"), strAttr("success", "true"),
+	}))
+	if !events[0].ToolCall.Success {
+		t.Error("string success \"true\" must parse as success")
+	}
+	events, _ = n.NormalizeTraces(mkSpan([]*commonpb.KeyValue{
+		strAttr("session.id", "s1"), strAttr("tool_name", "Bash"),
+		{Key: "success", Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_BoolValue{BoolValue: false}}},
+	}))
+	if events[0].ToolCall.Success {
+		t.Error("explicit bool false must stay failure")
+	}
+}
+
+func TestToolSpanSuccess_mergedFromExecutionSpan(t *testing.T) {
+	n := &ClaudeCodeNormalizer{}
+	strAttr := func(k, v string) *commonpb.KeyValue {
+		return &commonpb.KeyValue{Key: k, Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: v}}}
+	}
+	boolAttr := func(k string, v bool) *commonpb.KeyValue {
+		return &commonpb.KeyValue{Key: k, Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_BoolValue{BoolValue: v}}}
+	}
+	now := uint64(time.Now().UnixNano())
+	// Real shape: .tool has the name, .tool.execution has the verdict.
+	req := &coltracepb.ExportTraceServiceRequest{
+		ResourceSpans: []*tracepb.ResourceSpans{{
+			ScopeSpans: []*tracepb.ScopeSpans{{Spans: []*tracepb.Span{
+				{
+					Name: "claude_code.tool", SpanId: []byte("sp-named"),
+					StartTimeUnixNano: now, EndTimeUnixNano: now,
+					Attributes: []*commonpb.KeyValue{
+						strAttr("session.id", "s1"), strAttr("tool_name", "Bash"),
+						strAttr("tool_use_id", "toolu_123"),
+					},
+				},
+				{
+					Name: "claude_code.tool.execution", SpanId: []byte("sp-exec"),
+					StartTimeUnixNano: now, EndTimeUnixNano: now,
+					Attributes: []*commonpb.KeyValue{
+						strAttr("session.id", "s1"), strAttr("tool_use_id", "toolu_123"),
+						boolAttr("success", false),
+					},
+				},
+			}}},
+		}},
+	}
+	events, err := n.NormalizeTraces(req)
+	if err != nil {
+		t.Fatalf("normalize: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event (execution span has no name and is dropped), got %d", len(events))
+	}
+	if events[0].ToolCall.Success {
+		t.Error("failure verdict from the execution span must be merged in")
+	}
+}

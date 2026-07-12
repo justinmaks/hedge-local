@@ -18,12 +18,34 @@ type ClaudeCodeNormalizer struct{}
 func (n *ClaudeCodeNormalizer) Agent() string { return "claude_code" }
 
 func (n *ClaudeCodeNormalizer) NormalizeTraces(req *coltracepb.ExportTraceServiceRequest) ([]Event, error) {
+	// Claude Code splits each tool call across spans: claude_code.tool has
+	// the tool name, while the co-batched claude_code.tool.execution span
+	// carries the authoritative success flag, joined by tool_use_id.
+	// Collect those flags first so the second pass can merge them.
+	execSuccess := map[string]bool{}
+	for _, rs := range req.ResourceSpans {
+		for _, ss := range rs.ScopeSpans {
+			for _, span := range ss.Spans {
+				if span.Name != "claude_code.tool.execution" {
+					continue
+				}
+				tuid := attrString(span.Attributes, "tool_use_id")
+				if tuid == "" {
+					continue
+				}
+				if success, ok := attrBoolValue(span.Attributes, "success"); ok {
+					execSuccess[tuid] = success
+				}
+			}
+		}
+	}
+
 	var events []Event
 	for _, rs := range req.ResourceSpans {
 		projectPath := attrString(rs.Resource.GetAttributes(), "hcli.project_path")
 		for _, ss := range rs.ScopeSpans {
 			for _, span := range ss.Spans {
-				e, ok := n.traceSpanToEvent(span, projectPath)
+				e, ok := n.traceSpanToEvent(span, projectPath, execSuccess)
 				if ok {
 					events = append(events, e)
 				}
@@ -33,7 +55,7 @@ func (n *ClaudeCodeNormalizer) NormalizeTraces(req *coltracepb.ExportTraceServic
 	return events, nil
 }
 
-func (n *ClaudeCodeNormalizer) traceSpanToEvent(span *tracepb.Span, projectPath string) (Event, bool) {
+func (n *ClaudeCodeNormalizer) traceSpanToEvent(span *tracepb.Span, projectPath string, execSuccess map[string]bool) (Event, bool) {
 	sessionID := attrString(span.Attributes, "session.id")
 	base := Event{
 		Timestamp:   time.Unix(0, int64(span.StartTimeUnixNano)),
@@ -74,8 +96,18 @@ func (n *ClaudeCodeNormalizer) traceSpanToEvent(span *tracepb.Span, projectPath 
 			StartedAt:    time.Unix(0, int64(span.StartTimeUnixNano)),
 			DurationMs:   firstAttrInt(span.Attributes, "duration_ms"),
 			ToolName:     firstAttrString(span.Attributes, "tool_name", "gen_ai.tool.name"),
-			Success:      attrBool(span.Attributes, "success"),
 			ErrorMessage: firstAttrString(span.Attributes, "error"),
+		}
+		// Success priority: an explicit attribute on this span, then the
+		// co-batched .tool.execution span (joined by tool_use_id), then
+		// "no error means it worked". An absent attribute must never read
+		// as failure.
+		if success, ok := attrBoolValue(span.Attributes, "success"); ok {
+			tc.Success = success
+		} else if success, ok := execSuccess[attrString(span.Attributes, "tool_use_id")]; ok {
+			tc.Success = success
+		} else {
+			tc.Success = tc.ErrorMessage == ""
 		}
 		if tc.DurationMs == 0 {
 			tc.DurationMs = int((span.EndTimeUnixNano - span.StartTimeUnixNano) / 1e6)
@@ -165,11 +197,23 @@ func attrInt(attrs []*commonpb.KeyValue, key string) int {
 	return 0
 }
 
-func attrBool(attrs []*commonpb.KeyValue, key string) bool {
+// attrBoolValue reads a boolean attribute, tolerating the string and int
+// encodings Claude Code has used across versions. The second return reports
+// whether the attribute was present at all.
+func attrBoolValue(attrs []*commonpb.KeyValue, key string) (bool, bool) {
 	for _, kv := range attrs {
-		if kv.Key == key {
-			return kv.Value.GetBoolValue()
+		if kv.Key != key {
+			continue
 		}
+		switch v := kv.Value.GetValue().(type) {
+		case *commonpb.AnyValue_BoolValue:
+			return v.BoolValue, true
+		case *commonpb.AnyValue_StringValue:
+			return v.StringValue == "true", true
+		case *commonpb.AnyValue_IntValue:
+			return v.IntValue != 0, true
+		}
+		return false, true
 	}
-	return false
+	return false, false
 }

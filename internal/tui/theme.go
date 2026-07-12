@@ -143,3 +143,36 @@ func Bar(width int, pct float64) string {
 	}
 	return strings.Repeat("█", full) + strings.Repeat("░", width-full)
 }
+
+// Waveform renders values as two stacked rows of block characters, giving
+// 16 intensity levels instead of Sparkline's 8. The bottom row fills first;
+// values past half of maxVal spill into the top row. Rows are exactly width
+// cells; missing values render as spaces.
+func Waveform(values []float64, maxVal float64, width int) (top, bottom string) {
+	if maxVal <= 0 {
+		maxVal = 1
+	}
+	var t, b strings.Builder
+	for i := 0; i < width; i++ {
+		if i >= len(values) || values[i] <= 0 {
+			t.WriteString(" ")
+			b.WriteString(" ")
+			continue
+		}
+		level := int(values[i] / maxVal * 16)
+		if level < 1 {
+			level = 1
+		}
+		if level > 16 {
+			level = 16
+		}
+		if level <= 8 {
+			t.WriteString(" ")
+			b.WriteString(blockChars[level-1])
+		} else {
+			t.WriteString(blockChars[level-9])
+			b.WriteString(blockChars[7])
+		}
+	}
+	return t.String(), b.String()
+}

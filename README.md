@@ -25,6 +25,7 @@ Start coding, and telemetry appears in the TUI within 60 seconds.
 - **Collects** OTEL telemetry from Claude Code and OpenCode via OTLP/HTTP
 - **Stores** it in a local SQLite database (WAL mode, no external services)
 - **Visualizes** cost, tokens, tools, models, projects, and live activity in a 7-view TUI
+- **Pulse**: a live EKG of your coding session — token waveform, tool activity lane, burn rate ($/hr), and session rhythm, updating in real time
 - **Exports** data as CSV, JSON, or Markdown
 - **Local-only**: no usage data leaves your machine
 
@@ -40,9 +41,9 @@ Start coding, and telemetry appears in the TUI within 60 seconds.
 |-------|--------|
 | ![Tools](docs/screenshots/03-tools.png) | ![Models](docs/screenshots/04-models.png) |
 
-| Projects |
-|----------|
-| ![Projects](docs/screenshots/05-projects.png) |
+| Projects | Live Pulse |
+|----------|------------|
+| ![Projects](docs/screenshots/05-projects.png) | ![Pulse](docs/screenshots/06-pulse.png) |
 
 ## Install
 
@@ -221,6 +222,7 @@ Unknown keys produce a warning (typo detection), and a path passed via
 | `↑↓` | Scroll |
 | `Enter` | Focused detail |
 | `Esc` | Return to table |
+| `t` | Live tab: toggle pulse/table |
 
 ## Architecture
 
