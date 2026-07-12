@@ -3,6 +3,8 @@ package cli
 import (
 	"bytes"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -37,7 +39,7 @@ func TestRunTUIUsesConfiguredDBAndSeedsPricing(t *testing.T) {
 	})
 
 	called := false
-	runTUIApp = func(svc *queries.Service, collecting bool) error {
+	runTUIApp = func(svc *queries.Service, collecting bool, probe func() bool) error {
 		called = true
 		if collecting {
 			t.Fatalf("collecting = true, want false")
@@ -82,16 +84,22 @@ func TestRunTUIUsesConfiguredDBAndSeedsPricing(t *testing.T) {
 	}
 }
 
-func TestRunTUIShowsCollectingWhenDaemonIsRunning(t *testing.T) {
+func TestRunTUIShowsCollectingWhenCollectorAnswers(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("HOME", filepath.Join(dir, "home"))
 	db := filepath.Join(dir, "custom.db")
+
+	// A live collector is detected via its /health endpoint, regardless of
+	// whether it is the daemon, a service, or another hcli process.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	port := srv.Listener.Addr().(*net.TCPAddr).Port
+
 	cfgPath := filepath.Join(dir, "config.toml")
-	if err := os.WriteFile(cfgPath, []byte("db_path = \""+db+"\"\n"), 0o644); err != nil {
+	if err := os.WriteFile(cfgPath, []byte("db_path = \""+db+"\"\notlp_port = "+strconv.Itoa(port)+"\n"), 0o644); err != nil {
 		t.Fatalf("write config: %v", err)
-	}
-	if err := writePIDFile(defaultPIDPath(), os.Getpid()); err != nil {
-		t.Fatalf("writePIDFile: %v", err)
 	}
 
 	oldDB := dbPath
@@ -106,10 +114,13 @@ func TestRunTUIShowsCollectingWhenDaemonIsRunning(t *testing.T) {
 	})
 
 	called := false
-	runTUIApp = func(svc *queries.Service, collecting bool) error {
+	runTUIApp = func(svc *queries.Service, collecting bool, probe func() bool) error {
 		called = true
 		if !collecting {
-			t.Fatalf("collecting = false, want true when daemon PID is alive")
+			t.Fatalf("collecting = false, want true when a collector answers /health")
+		}
+		if probe == nil || !probe() {
+			t.Fatal("expected a live probe to be provided")
 		}
 		return nil
 	}
@@ -142,7 +153,7 @@ func TestRunRootStartsEmbeddedReceiverAndRunsCollectingTUI(t *testing.T) {
 	})
 
 	called := false
-	runTUIApp = func(svc *queries.Service, collecting bool) error {
+	runTUIApp = func(svc *queries.Service, collecting bool, probe func() bool) error {
 		called = true
 		if !collecting {
 			t.Fatalf("collecting = false, want true")
@@ -204,7 +215,7 @@ func TestRunRootFallsBackToNonCollectingTUIWhenReceiverStartFails(t *testing.T) 
 	cmd.SetErr(&errBuf)
 
 	called := false
-	runTUIApp = func(svc *queries.Service, collecting bool) error {
+	runTUIApp = func(svc *queries.Service, collecting bool, probe func() bool) error {
 		called = true
 		if collecting {
 			t.Fatalf("collecting = true, want false")

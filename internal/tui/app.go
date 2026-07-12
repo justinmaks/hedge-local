@@ -55,6 +55,12 @@ type App struct {
 	dateSaved  DateFilter
 	collecting bool
 	spanCount  int
+
+	// collectorProbe rechecks whether a collector is answering; refreshed
+	// on the live tick so the badge follows daemon/service starts and
+	// stops while the TUI is open.
+	collectorProbe func() bool
+	lastProbe      time.Time
 }
 
 func NewApp(service *queries.Service, collecting bool) *App {
@@ -151,6 +157,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case spanCountMsg:
 		a.spanCount = msg.count
 		return a, nil
+
+	case collectingMsg:
+		a.collecting = bool(msg)
+		return a, nil
 	}
 
 	if a.views[a.activeView] != nil {
@@ -228,9 +238,32 @@ func (a *App) handleLiveTick(msg LiveTickMsg) (tea.Model, tea.Cmd) {
 		}
 		updated, cmd := receiver.UpdateLiveTick(msg, ctx)
 		a.views[idx] = updated
-		return a, tea.Batch(cmd, a.spanCountCmd())
+		return a, tea.Batch(cmd, a.spanCountCmd(), a.probeCmd())
 	}
-	return a, a.spanCountCmd()
+	return a, tea.Batch(a.spanCountCmd(), a.probeCmd())
+}
+
+type collectingMsg bool
+
+// SetCollectorProbe installs the liveness check used to keep the status
+// badge honest while the TUI runs.
+func (a *App) SetCollectorProbe(probe func() bool) {
+	a.collectorProbe = probe
+}
+
+// probeCmd rechecks collector liveness off the UI thread, at most every 2s.
+func (a *App) probeCmd() tea.Cmd {
+	if a.collectorProbe == nil {
+		return nil
+	}
+	if time.Since(a.lastProbe) < 2*time.Second {
+		return nil
+	}
+	a.lastProbe = time.Now()
+	probe := a.collectorProbe
+	return func() tea.Msg {
+		return collectingMsg(probe())
+	}
 }
 
 type spanCountMsg struct{ count int }
@@ -377,8 +410,9 @@ func (a *App) SetView(idx int, view View) {
 	}
 }
 
-func RunApp(service *queries.Service, collecting bool) error {
+func RunApp(service *queries.Service, collecting bool, probe func() bool) error {
 	app := NewApp(service, collecting)
+	app.SetCollectorProbe(probe)
 	p := tea.NewProgram(app, tea.WithAltScreen())
 	_, err := p.Run()
 	return err

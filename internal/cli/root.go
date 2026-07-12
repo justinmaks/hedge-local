@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/justinmaks/hedge-local/internal/collect"
 	"github.com/justinmaks/hedge-local/internal/normalize"
@@ -55,10 +56,20 @@ func runRoot(cmd *cobra.Command, args []string) error {
 	if err := r.Start(); err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not start receiver (%v). Running TUI without collection.\n", err)
 		svc := queries.NewService(s)
-		return runTUIApp(svc, false)
+		// Another process may own the port (daemon/service); let the
+		// probe find out.
+		probe := collectorProbe(cfg.OTLPPort)
+		return runTUIApp(svc, probe(), probe)
 	}
 	defer func() { _ = r.Stop() }()
 
 	svc := queries.NewService(s)
-	return runTUIApp(svc, true)
+	return runTUIApp(svc, true, collectorProbe(r.Port()))
+}
+
+// collectorProbe returns a liveness check bound to the given port.
+func collectorProbe(port int) func() bool {
+	return func() bool {
+		return collect.HealthCheck(port, 300*time.Millisecond)
+	}
 }
